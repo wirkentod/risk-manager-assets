@@ -15,9 +15,9 @@ def load_data(path):
     df = pd.read_csv(p)
     return df
 
-def compute_risk(df, dailyreturn, term="3M"):
+def compute_risk(df, term, dailyreturn):
     """Compute risk metrics for a portfolio."""
-    dr = compute_daily_return(df, dailyreturn)
+    dr = compute_daily_return(df, term, dailyreturn)
     #read weights from a file or define them here
     weight = pd.Series([0.60, 0.40], index=["A", "B"]) 
     riskP = np.sqrt(weight.dot(dr.cov()).dot(weight))
@@ -26,23 +26,24 @@ def compute_risk(df, dailyreturn, term="3M"):
     #risk_portfolio = np.sqrt(weight.dot(cov_matrix).dot(weight))
     return riskP
 
-def compute_daily_return(df, dailyreturn="log"):
-    """Compute daily return for a portfolio."""
-    numeric = df.select_dtypes(include="number")
+def compute_daily_return(df, term, dailyreturn):
+    """Compute a term daily return for a portfolio."""
+    term_choice = {"1W": 3, "1M": 21, "2M": 42, "3M": 63, "1A": 252}
+    numeric = df.select_dtypes(include="number")[:term_choice[term]+1]
     if dailyreturn == "log":
-        return np.log(numeric / numeric.shift(1))
+        return np.log(numeric / numeric.shift(-1))
     elif dailyreturn == "simple":
         return (numeric/numeric.shift(-1)-1)
     else:
         raise ValueError("Invalid daily return method. Choose 'log' or 'simple'.")
  
-def compute_correlation(df, method="pearson"):
+def compute_correlation(df, term, dailyreturn, method="pearson"):
     """Compute correlation matrix for numeric columns.
 
     method: 'pearson', 'spearman', 'kendall'
     """
-    numeric = df.select_dtypes(include="number")
-    return numeric.corr(method=method)
+    dr = compute_daily_return(df, term, dailyreturn)
+    return dr.corr(method=method)
 
 
 def save_corr(df_corr, out_path):

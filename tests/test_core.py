@@ -1,7 +1,6 @@
 import pandas as pd
 from io import StringIO
-from corr_assets.core import compute_correlation, load_data
-
+from src.pyfolio.core import compute_correlation
 
 def test_compute_correlation():
     csv = StringIO("""Date,A,B,C

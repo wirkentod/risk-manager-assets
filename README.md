@@ -16,12 +16,12 @@ pip install -r requirements.txt
 2. Run the CLI on the sample data:
 
 ```bash
-python -m src.corr_assets.cli data/sample_assets.csv --method pearson --out out/corr.csv --plot out/corr.png
+python -m src.pyfolio.cli data/sample_assets.csv --method pearson --out out/corr.csv --plot out/corr.png
 ```
 
 Files
 
-- `src/corr_assets`: package with core functions and CLI
+- `src/pyfolio`: package with core functions and CLI
 - `data/sample_assets.csv`: small sample dataset
 - `tests`: unit tests (run with `pytest`)
 
