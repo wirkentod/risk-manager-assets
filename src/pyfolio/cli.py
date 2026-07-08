@@ -1,8 +1,6 @@
 """Simple CLI to compute and optionally save/plot correlations."""
 import argparse, time
-from .core import load_data, compute_correlation, save_corr, compute_risk, compute_daily_return
-from .visualize import plot_heatmap
-
+from src.pyfolio import load_data, compute_correlation, save_corr, compute_portfolio_metrics, plot_heatmap, RISK_FREE_RATE, ANUAL_PERIOD, ASSETS, WEIGHTS, NUM_SIMULATIONS
 
 def build_parser():
     p = argparse.ArgumentParser(description="Compute asset correlation matrix from CSV")
@@ -16,7 +14,7 @@ def build_parser():
 
 
 def main(argv=None):
-    print("Comencemos:")
+    print(f"Start:")
     ini_load = time.perf_counter()
     parser = build_parser()
     args = parser.parse_args(argv)
@@ -26,10 +24,14 @@ def main(argv=None):
     corr = compute_correlation(df, args.term, args.dailyreturn,  method=args.method)
     
     ini_risk = time.perf_counter()
-    risk = compute_risk(df, args.term, args.dailyreturn, 252)
+    pfolio_assets, pfolio_weights = ASSETS, WEIGHTS
+    returnP, riskP, sharpeP = compute_portfolio_metrics(df, args.term, args.dailyreturn, ANUAL_PERIOD, pfolio_assets, pfolio_weights)
     fin_risk = time.perf_counter()
-    print(f"Risk computed in: {fin_risk - ini_risk:.4f} seconds.")
-    
+    print(f"Portfolio metrics computed in: {fin_risk - ini_risk:.4f} seconds.")
+    print(f"Portfolio Annualized Return: {returnP}")
+    print(f"Portfolio Annualized Risk: {riskP}")
+    print(f"Portfolio Annualized Sharpe Ratio: {sharpeP}")
+
     if args.out:
         save_corr(corr, args.out)
     if args.plot:

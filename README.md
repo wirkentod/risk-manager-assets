@@ -16,12 +16,13 @@ pip install -r requirements.txt
 2. Run the CLI on the sample data:
 
 ```bash
-python -m src.pyfolio.cli data/sample_assets.csv --method pearson --out out/corr.csv --plot out/corr.png
+python -m src.pyfolio.cli data/sample_assets.csv --term 1A --dailyreturn log --method pearson --out out/corr.csv --plot out/corr.png
 ```
 
 Files
 
 - `src/pyfolio`: package with core functions and CLI
+- `src/pyfolio/config`: global parameters
 - `data/sample_assets.csv`: small sample dataset
 - `tests`: unit tests (run with `pytest`)
 
