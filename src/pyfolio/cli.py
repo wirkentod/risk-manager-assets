@@ -24,18 +24,19 @@ def main(argv=None):
     fin_load =time.perf_counter()
     print(f"Data loaded in: {fin_load - ini_load:.4f} seconds.")
     corr = compute_correlation(df, args.term, args.dailyreturn,  method=args.method)
-    #ini_risk = time.perf_counter()
-    #risk = compute_risk(df, args.dailyreturn, args.term)
-    #fin_risk = time.perf_counter()
-    #print(f"Risk computed in: {fin_risk - ini_risk:.4f} seconds.")
-
+    
+    ini_risk = time.perf_counter()
+    risk = compute_risk(df, args.term, args.dailyreturn, 252)
+    fin_risk = time.perf_counter()
+    print(f"Risk computed in: {fin_risk - ini_risk:.4f} seconds.")
+    
     if args.out:
         save_corr(corr, args.out)
     if args.plot:
         plot_heatmap(corr, args.plot)
     else:
         print(corr.to_string())
-
+    
 
 if __name__ == "__main__":
     main()
