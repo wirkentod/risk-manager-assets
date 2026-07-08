@@ -31,16 +31,12 @@ def compute_risk(df, term, dailyreturn,periods):
         [0.2597, 0.1782, 0.1429, 0.1074, 0.0943, 0.0725, 0.0368, 0.0364, 0.036, 0.0357],
         index = ["ORYGENC1","FERREYC1","MINSURI1","IPCHBC1","BBVAC1","ALICORC1","BACKUSI1","CARTAVC1","SNJUANI1","SIDERC1"]
     )
-    #returnP = weight.dot(dr.mean()) * periods
     returnP = np.sum(weight * dr.mean()) * periods # Annualized portfolio return
     riskP = np.sqrt(weight.dot(dr.cov()).dot(weight)) * np.sqrt(periods) # Annualized portfolio volatility
     sharpeP = returnP / riskP # Portfolio Sharpe ratio
     print(f"Return portfolio: {returnP}")   
     print(f"Risk portfolio: {riskP}")
     print(f"Sharpe ratio portfolio: {sharpeP}")
-
-    #corr_matrix = dr.corr()
-    #risk_portfolio = np.sqrt(weight.dot(cov_matrix).dot(weight))
     return riskP
 
 def compute_daily_return(df, term, dailyreturn):
