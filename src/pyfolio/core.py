@@ -34,9 +34,6 @@ def compute_portfolio_metrics(df: pd.DataFrame, term: str, dailyreturn: int, anu
     returnP = (1 + np.sum(weight * dr.mean()) ) ** anualperiod - 1 # Annualized portfolio return ratio
     riskP = np.sqrt(weight.dot(dr.cov()).dot(weight)) * np.sqrt(anualperiod) # Annualized portfolio risk ratio
     sharpeP = returnP / riskP # Annualized portfolio sharpe ratio
-    #print(f"Return portfolio: {returnP}")   
-    #print(f"Risk portfolio: {riskP}")
-    #print(f"Sharpe ratio portfolio: {sharpeP}")
     return returnP, riskP, sharpeP
 
 def compute_daily_return(df: pd.DataFrame, term: str, dailyreturn: str) -> pd.DataFrame:
