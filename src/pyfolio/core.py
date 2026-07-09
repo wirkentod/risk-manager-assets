@@ -109,10 +109,10 @@ def compute_montecarlo_simulation(df: pd.DataFrame, term: str, dailyreturn: str,
     # MonteCarlo Simulation
     results = np.zeros((4, num_simulations))
     weights_record = np.zeros((len(pfolio_assets), num_simulations))
+    alpha_param = 0.1 # Coefficient for the Dirichlet distribution to ensure weights sum to 1 and are non-negative
     for i in range(num_simulations):
-        # Random weights
-        weights = np.random.random(len(pfolio_assets))
-        weights /= np.sum(weights)
+        # Random weights using Dirichlet distribution to ensure they sum to 1 and are non-negative
+        weights = np.random.dirichlet([alpha_param] * len(pfolio_assets))
         weights_record[:, i] = weights
         # Annualized portfolio return
         portfolio_return = compute_return(dr, weights, anualperiod) 
