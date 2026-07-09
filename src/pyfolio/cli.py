@@ -1,6 +1,6 @@
 """Simple CLI to compute and optionally save/plot correlations."""
 import argparse, time
-from src.pyfolio import load_data, compute_correlation, save_corr, compute_portfolio_metrics, compute_montecarlo_simulation, plot_heatmap, RISK_FREE_RATE, ANUAL_PERIOD, ASSETS, WEIGHTS, NUM_SIMULATIONS
+from src.pyfolio import load_data, compute_correlation, save_corr, compute_portfolio_metrics, compute_montecarlo_simulation, plot_heatmap, plot_montecarlo_simulation, RISK_FREE_RATE, ANUAL_PERIOD, ASSETS, WEIGHTS, NUM_SIMULATIONS
 
 def build_parser():
     p = argparse.ArgumentParser(description="Compute asset correlation matrix from CSV")
@@ -10,6 +10,7 @@ def build_parser():
     p.add_argument("--method", default="pearson", choices=("pearson", "spearman"), help="correlation method")
     p.add_argument("--out", help="path to save CSV of correlation matrix")
     p.add_argument("--plot", help="path to save heatmap image (PNG) or omit to show")
+    p.add_argument("--plotmontecarlo", help="path to save Monte Carlo simulation plot (PNG) or omit to show")
     return p
 
 
@@ -33,7 +34,7 @@ def main(argv=None):
     print(f"Portfolio Annualized Sharpe Ratio: {sharpeP}")
 
     ini_montecarlo = time.perf_counter()
-    montecarlo_results = compute_montecarlo_simulation(df, args.term, args.dailyreturn, ANUAL_PERIOD, RISK_FREE_RATE, pfolio_assets, NUM_SIMULATIONS)
+    optimal_weights, optimal_portfolio, simulated_portfolios = compute_montecarlo_simulation(df, args.term, args.dailyreturn, ANUAL_PERIOD, RISK_FREE_RATE, pfolio_assets, NUM_SIMULATIONS)
     fin_montecarlo = time.perf_counter()
     print(f"Monte Carlo simulation computed in: {fin_montecarlo - ini_montecarlo:.4f} seconds.")
 
@@ -41,6 +42,10 @@ def main(argv=None):
         save_corr(corr, args.out)
     if args.plot:
         plot_heatmap(corr, args.plot)
+        ini_plotmontecarlo = time.perf_counter()
+        plot_montecarlo_simulation(optimal_weights, optimal_portfolio, simulated_portfolios, pfolio_assets, returnP, riskP, sharpeP, args.plotmontecarlo)
+        fin_plotmontecarlo = time.perf_counter()
+        print(f"Monte Carlo simulation plot computed in: {fin_plotmontecarlo - ini_plotmontecarlo:.4f} seconds.")
     else:
         print(corr.to_string())
     

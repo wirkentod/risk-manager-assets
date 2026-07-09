@@ -74,7 +74,7 @@ def save_corr(df_corr: pd.DataFrame, out_path: str):
     p.parent.mkdir(parents=True, exist_ok=True)
     df_corr.to_csv(p)
 
-def compute_montecarlo_simulation(df: pd.DataFrame, term: str, dailyreturn: str, anualperiod: int, riskfreerate: float, pfolio_assets: list, num_simulations: int) -> pd.DataFrame:
+def compute_montecarlo_simulation(df: pd.DataFrame, term: str, dailyreturn: str, anualperiod: int, riskfreerate: float, pfolio_assets: list, num_simulations: int) -> tuple:
     """Compute Monte Carlo simulation for portfolio optimization.
     term: '1W', '1M', '2M', '3M', '1A'.
     dailyreturn: 'log', 'simple'.
@@ -114,5 +114,5 @@ def compute_montecarlo_simulation(df: pd.DataFrame, term: str, dailyreturn: str,
     optimal_weights = weights_record[:, optimal_idx]
 
     print(f"Optimal Portfolio:\n{optimal_portfolio}")
-    print(f"Optimal Weights:\n{pd.Series(optimal_weights, index=pfolio_assets)}")
-    return simulated_portfolios
+    print(f"Optimal Weights:\n{pd.Series(optimal_weights, index=pfolio_assets).sort_values(ascending=False)}")
+    return optimal_weights, optimal_portfolio, simulated_portfolios
