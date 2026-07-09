@@ -29,20 +29,33 @@ def compute_portfolio_metrics(df: pd.DataFrame, term: str, dailyreturn: int, anu
     dailyreturn: 'log', 'simple'
     """
     dr = compute_daily_return(df, term, dailyreturn)
+    #read weights from a file or define them here
+    weight = pd.Series(pfolio_weights, index = pfolio_assets)
+    #compute portfolio return, risk and sharpe ratio
+    returnP = np.sum(weight * dr.mean()) * anualperiod # Annualized portfolio return ratio
+    riskP = np.sqrt(weight.dot(dr.cov()).dot(weight)) * np.sqrt(anualperiod) # Annualized portfolio risk ratio
+    sharpeP = returnP / riskP # Annualized portfolio sharpe ratio
+    return returnP, riskP, sharpeP
+
+def compute_assets_metrics(df: pd.DataFrame, term: str, dailyreturn: int, anualperiod: int) -> pd.DataFrame:
+    """Compute risk metrics for each asset.
+    term: '1W', '1M', '2M', '3M', '1A'.
+    dailyreturn: 'log', 'simple'
+    """
+    dr = compute_daily_return(df, term, dailyreturn)
     #calculate return, risk and sharpe ratio for each asset
-    returns = (1 + dr.mean()) ** anualperiod - 1 # Annualized return
+    returns = dr.mean() * anualperiod # Annualized return
     risks = dr.std() * np.sqrt(anualperiod) # Annualized volatility
     sharpe_ratios = returns / risks # Sharpe ratio
     print(f"Return Ordered:\n {returns.sort_values(ascending=False)}")
     print(f"Risks Ordered:\n {risks.sort_values(ascending=True)}")
     print(f"Sharpe Ratios Ordered:\n {sharpe_ratios.sort_values(ascending=False)}")
-    #read weights from a file or define them here
-    weight = pd.Series(pfolio_weights, index = pfolio_assets)
-    #compute portfolio return, risk and sharpe ratio
-    returnP = (1 + np.sum(weight * dr.mean()) ) ** anualperiod - 1 # Annualized portfolio return ratio
-    riskP = np.sqrt(weight.dot(dr.cov()).dot(weight)) * np.sqrt(anualperiod) # Annualized portfolio risk ratio
-    sharpeP = returnP / riskP # Annualized portfolio sharpe ratio
-    return returnP, riskP, sharpeP
+    #DataFrame with assets metrics
+    return pd.DataFrame({
+        'Return': returns,
+        'Risk': risks,
+        'SharpeRatio': sharpe_ratios
+    })
 
 def compute_daily_return(df: pd.DataFrame, term: str, dailyreturn: str) -> pd.DataFrame:
     """Compute a term daily return for a portfolio.
@@ -94,7 +107,7 @@ def compute_montecarlo_simulation(df: pd.DataFrame, term: str, dailyreturn: str,
         weights_record[:, i] = weights
 
         #Annualized portfolio return
-        portfolio_return = (1 + np.sum(weights * dr.mean()) ) ** anualperiod - 1
+        portfolio_return = np.sum(weights * dr.mean()) * anualperiod
         #Annualized portfolio volatility
         portfolio_stddev = np.sqrt(weights.dot(dr.cov()).dot(weights)) * np.sqrt(anualperiod)
         #Annualized Sharpe ratio

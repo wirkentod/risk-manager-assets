@@ -1,6 +1,6 @@
 """Simple CLI to compute and optionally save/plot correlations."""
 import argparse, time
-from src.pyfolio import load_data, compute_correlation, save_corr, compute_portfolio_metrics, compute_montecarlo_simulation, plot_heatmap, plot_montecarlo_simulation, RISK_FREE_RATE, ANUAL_PERIOD, ASSETS, WEIGHTS, NUM_SIMULATIONS
+from src.pyfolio import load_data, compute_correlation, save_corr, compute_assets_metrics, compute_portfolio_metrics, compute_montecarlo_simulation, plot_heatmap, plot_montecarlo_simulation, RISK_FREE_RATE, ANUAL_PERIOD, ASSETS, WEIGHTS, NUM_SIMULATIONS
 
 def build_parser():
     p = argparse.ArgumentParser(description="Compute asset correlation matrix from CSV")
@@ -23,7 +23,9 @@ def main(argv=None):
     fin_load =time.perf_counter()
     print(f"Data loaded in: {fin_load - ini_load:.4f} seconds.")
     corr = compute_correlation(df, args.term, args.dailyreturn,  method=args.method)
-    
+    #save metrics assets by portfolio
+    assets_metrics = compute_assets_metrics(df, args.term, args.dailyreturn, ANUAL_PERIOD)
+
     ini_risk = time.perf_counter()
     pfolio_assets, pfolio_weights = ASSETS, WEIGHTS
     returnP, riskP, sharpeP = compute_portfolio_metrics(df, args.term, args.dailyreturn, ANUAL_PERIOD, pfolio_assets, pfolio_weights)
@@ -43,7 +45,7 @@ def main(argv=None):
     if args.plot:
         plot_heatmap(corr, args.plot)
         ini_plotmontecarlo = time.perf_counter()
-        plot_montecarlo_simulation(optimal_weights, optimal_portfolio, simulated_portfolios, pfolio_assets, returnP, riskP, sharpeP, args.plotmontecarlo)
+        plot_montecarlo_simulation(optimal_weights, optimal_portfolio, simulated_portfolios, pfolio_assets, assets_metrics, returnP, riskP, sharpeP, args.plotmontecarlo)
         fin_plotmontecarlo = time.perf_counter()
         print(f"Monte Carlo simulation plot computed in: {fin_plotmontecarlo - ini_plotmontecarlo:.4f} seconds.")
     else:
