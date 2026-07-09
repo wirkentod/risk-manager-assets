@@ -1,6 +1,6 @@
 """Simple CLI to compute and optionally save/plot correlations."""
 import argparse, time
-from src.pyfolio import load_data, compute_correlation, save_corr, compute_portfolio_metrics, plot_heatmap, RISK_FREE_RATE, ANUAL_PERIOD, ASSETS, WEIGHTS, NUM_SIMULATIONS
+from src.pyfolio import load_data, compute_correlation, save_corr, compute_portfolio_metrics, compute_montecarlo_simulation, plot_heatmap, RISK_FREE_RATE, ANUAL_PERIOD, ASSETS, WEIGHTS, NUM_SIMULATIONS
 
 def build_parser():
     p = argparse.ArgumentParser(description="Compute asset correlation matrix from CSV")
@@ -31,6 +31,11 @@ def main(argv=None):
     print(f"Portfolio Annualized Return: {returnP}")
     print(f"Portfolio Annualized Risk: {riskP}")
     print(f"Portfolio Annualized Sharpe Ratio: {sharpeP}")
+
+    ini_montecarlo = time.perf_counter()
+    montecarlo_results = compute_montecarlo_simulation(df, args.term, args.dailyreturn, ANUAL_PERIOD, RISK_FREE_RATE, pfolio_assets, NUM_SIMULATIONS)
+    fin_montecarlo = time.perf_counter()
+    print(f"Monte Carlo simulation computed in: {fin_montecarlo - ini_montecarlo:.4f} seconds.")
 
     if args.out:
         save_corr(corr, args.out)
