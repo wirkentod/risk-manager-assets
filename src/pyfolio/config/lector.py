@@ -12,7 +12,7 @@ def cargar_parametro(clave):
         datos = json.load(archivo)
         return datos.get(clave)
 
-# Exportas el parámetro como una variable global de este módulo
+# Extract parameters from the JSON configuration file
 RISK_FREE_RATE = cargar_parametro('RISK_FREE_RATE')
 ANUAL_PERIOD = cargar_parametro('ANUAL_PERIOD')
 ASSETS = cargar_parametro('ASSETS')
