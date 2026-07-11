@@ -188,6 +188,7 @@ def compute_efficient_frontier(
 
     target_returns = np.linspace(min_return_boundary, max_return_boundary, 100)
     frontier_vols = []
+    transition_weights_list = []
 
     for target in target_returns:
         # Extra constraint: portfolio return must match target
@@ -204,7 +205,10 @@ def compute_efficient_frontier(
             bounds=bounds, 
             constraints=frontier_constraints
         )
+        # Save volatility metric
         frontier_vols.append(res['fun'])
+        # Save exact optimized array of weights for this specific risk level
+        transition_weights_list.append(res['x'])
 
     efficient_frontier_points = pd.DataFrame({
         'Return': target_returns,
@@ -212,11 +216,18 @@ def compute_efficient_frontier(
         'SharpeRatio': compute_sharpe_ratio(target_returns, np.array(frontier_vols), riskfreerate)
     })
 
+    # --- CONSOLIDATE TRANSITION MAP DATA ---
+    # DataFrame rows = Risk levels (X), columns = Assets, values = allocation weights (Y)
+    transition_map_points = pd.DataFrame(
+        transition_weights_list, 
+        columns=pfolio_assets, 
+        index=frontier_vols  # Set the risk/volatility as the index for easier plotting
+    )
+
     # --- CONSOLE REPORTING ---
     print(f"Optimal Portfolio (Exact):\n{optimal_portfolio}\n")
     print(f"Optimal Weights (Exact):\n{pd.Series(optimal_weights, index=pfolio_assets).sort_values(ascending=False)}")
-    
-    return optimal_weights, optimal_portfolio, efficient_frontier_points
+    return optimal_weights, optimal_portfolio, efficient_frontier_points, transition_map_points 
 
 def compute_montecarlo_simulation(
     df: pd.DataFrame, 

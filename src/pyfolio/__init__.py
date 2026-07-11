@@ -3,15 +3,56 @@
 # =====================================================================
 # 1. CORE & VISUALIZATION (Function and Logic)
 # =====================================================================
-from .core import load_data, compute_correlation, save_corr, compute_assets_metrics, compute_portfolio_metrics, compute_efficient_frontier, compute_montecarlo_simulation
-from .visualize import plot_heatmap, plot_portfolio_frontier
+from .core import (
+    # process data
+    load_data,
+    compute_correlation,
+    save_corr,
+    # metrics
+    compute_assets_metrics,
+    compute_portfolio_metrics,
+    compute_efficient_frontier,
+    compute_montecarlo_simulation,
+)
+from .visualize import (
+    # visualization functions
+    plot_heatmap, 
+    plot_portfolio_frontier,
+    plot_transition_map
+)
 
 # =====================================================================
 # 2. CONFIGURATIONS & GLOBAL PARAMETERS (Loaded from JSON)
 # =====================================================================
-from .config.lector import RISK_FREE_RATE, ANUAL_PERIOD, ASSETS, WEIGHTS, NUM_SIMULATIONS
+from .config.lector import (
+    RISK_FREE_RATE, 
+    ANUAL_PERIOD, 
+    ASSETS, 
+    WEIGHTS, 
+    NUM_SIMULATIONS
+)
 
 # =====================================================================
 # 3. API PUBLIC (Export control)
 # =====================================================================
-__all__ = ["load_data", "compute_correlation", "save_corr", "compute_assets_metrics", "compute_portfolio_metrics", "compute_efficient_frontier","compute_montecarlo_simulation","plot_heatmap","plot_portfolio_frontier", "RISK_FREE_RATE", "ANUAL_PERIOD", "ASSETS", "WEIGHTS", "NUM_SIMULATIONS"]
+__all__ = [
+    # functions process data
+    "load_data",
+    "compute_correlation",
+    "save_corr",
+    # compute metrics
+    "compute_assets_metrics",
+    "compute_portfolio_metrics",
+    "compute_efficient_frontier",
+    "compute_montecarlo_simulation",
+    # visualization functions
+    "plot_heatmap",
+    "plot_portfolio_frontier",
+    "plot_transition_map",
+    # global variables
+    "RISK_FREE_RATE",
+    "ANUAL_PERIOD",
+    "ASSETS",
+    "WEIGHTS",
+    "NUM_SIMULATIONS",
+]

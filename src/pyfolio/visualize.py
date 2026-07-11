@@ -3,7 +3,7 @@ from pathlib import Path
 import matplotlib.pyplot as plt
 from matplotlib.ticker import FuncFormatter
 import seaborn as sns
-
+import numpy as np
 
 def plot_heatmap(corr, out_path=None, figsize=(10, 8), cmap="vlag"):
     """Plot or save a correlation heatmap.
@@ -124,6 +124,79 @@ def plot_portfolio_frontier(optimal_weights, optimal_portfolio, simulated_portfo
         fontsize=10
     )
 
+    # Save or display the figure ensuring tight constraints
+    if out_path:
+        plt.savefig(out_path, dpi=300, bbox_inches='tight')
+        plt.close()
+    else:
+        plt.show()
+
+def plot_transition_map(transition_map_df, out_path=None):
+    """
+    Plots a stacked area chart representing asset allocation changes 
+    with dynamic text labels placed directly inside each color band.
+    """
+    plt.figure(figsize=(12, 7))
+    
+    x_risk = transition_map_df.index.values
+    assets = transition_map_df.columns
+    y_allocations = [transition_map_df[asset].values for asset in assets]
+    
+    # 1. Draw the base stacked area plot
+    # We save the baseline poly-collections to extract accurate colors if needed
+    polys = plt.stackplot(x_risk, y_allocations, labels=assets, alpha=0.85)
+    
+    # Calculate cumulative sums to find absolute height boundaries for text placement
+    # shape: (num_assets, num_points)
+    cumulative_weights = np.cumsum(np.vstack(y_allocations), axis=0)
+    
+    # 2. Mathematically inject dynamic text labels inside the bands
+    for i, asset in enumerate(assets):
+        weights = transition_map_df[asset].values
+        
+        # Skip assets that never get allocated to avoid zero-division or errors
+        if np.max(weights) < 0.05:  # Only label if asset exceeds 5% allocation at peak
+            continue
+            
+        # Find the specific X index where this specific asset reaches its maximum weight
+        max_idx = np.argmax(weights)
+        x_pos = x_risk[max_idx]
+        
+        # Calculate the vertical midpoint inside its specific color band at that peak X coordinate
+        lower_bound = cumulative_weights[i-1, max_idx] if i > 0 else 0.0
+        upper_bound = cumulative_weights[i, max_idx]
+        y_pos = lower_bound + (upper_bound - lower_bound) / 2.0
+        
+        # Add text label directly inside the plot canvas
+        plt.text(
+            x=x_pos, 
+            y=y_pos, 
+            s=asset, 
+            color='black', 
+            fontsize=10, 
+            weight='bold',
+            va='center', 
+            ha='center',
+            bbox=dict(facecolor='white', alpha=0.6, edgecolor='none', boxstyle='round,pad=0.2')
+        )
+
+    # --- FORMATTING AESTHETICS ---
+    plt.title('Efficient Frontier Transition Map', fontsize=14, fontweight='bold', pad=15)
+    plt.xlabel('Standard Deviation (Risk)', fontsize=11, labelpad=10)
+    plt.ylabel('Allocation (Weight %)', fontsize=11, labelpad=10)
+    
+    # Convert scales to clean percentages
+    plt.gca().yaxis.set_major_formatter(plt.FuncFormatter(lambda y, _: f'{y*100:.1f}%'))
+    plt.gca().xaxis.set_major_formatter(plt.FuncFormatter(lambda x, _: f'{x*100:.1f}%'))
+    
+    plt.xlim(x_risk.min(), x_risk.max())
+    plt.ylim(0, 1.0)
+    
+    # Keeps a backup bottom legend for assets with too small an area to hold text
+    plt.legend(loc='upper center', bbox_to_anchor=(0.5, -0.15), ncol=4, frameon=True)
+    plt.tight_layout()
+    plt.grid(axis='x', linestyle='--', alpha=0.5)
+    
     # Save or display the figure ensuring tight constraints
     if out_path:
         plt.savefig(out_path, dpi=300, bbox_inches='tight')
