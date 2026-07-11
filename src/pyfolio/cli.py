@@ -13,7 +13,6 @@ def build_parser():
     p.add_argument("--plotmontecarlo", help="path to save Monte Carlo simulation plot (PNG) or omit to show")
     return p
 
-
 def main(argv=None):
     print(f"Start:")
     ini_load = time.perf_counter()
@@ -53,6 +52,5 @@ def main(argv=None):
     else:
         print(corr.to_string())
     
-
 if __name__ == "__main__":
     main()
