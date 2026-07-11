@@ -21,7 +21,7 @@ def plot_heatmap(corr, out_path=None, figsize=(10, 8), cmap="vlag"):
     else:
         plt.show()
 
-def plot_montecarlo_simulation(optimal_weights, optimal_portfolio, simulated_portfolios, pfolio_assets, assets_metrics, returnP, riskP, sharpeP, out_path=None, figsize=(14, 8)):
+def plot_portfolio_frontier(optimal_weights, optimal_portfolio, simulated_portfolios, pfolio_assets, assets_metrics, returnP, riskP, sharpeP, out_path=None, figsize=(14, 8)):
     """
     Plots the Monte Carlo simulation ensuring all assets, legend, and info_text are perfectly aligned and visible.
     """

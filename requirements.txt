@@ -3,3 +3,4 @@ numpy>=1.22
 seaborn>=0.12
 matplotlib>=3.5
 pytest>=7.0
+scipy>=1.14
