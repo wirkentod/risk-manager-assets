@@ -4,9 +4,7 @@ from src.pyfolio import(
     load_data, 
     compute_daily_return,
     compute_correlation, 
-    save_corr,
-    compute_mean, 
-    compute_covariance, 
+    save_corr, 
     compute_assets_metrics, 
     compute_portfolio_metrics, 
     compute_efficient_frontier, 
@@ -38,11 +36,6 @@ def main(argv=None):
     datafolio = load_data(args.input, ASSETS)
     fin_load =time.perf_counter()
     daily_return = compute_daily_return(datafolio, args.term, args.dailychange)
-
-    retfolio = compute_mean(daily_return).values
-    covfolio = compute_covariance(daily_return).values # Annualized risk ratio
-    #optimization_args = (retfolio, covfolio, RISK_FREE_RATE)
-
     print(f"Data loaded in: {fin_load - ini_load:.4f} seconds.")
     corr = compute_correlation(daily_return, method=args.method)
     # Compute metrics assets by portfolio
@@ -50,7 +43,7 @@ def main(argv=None):
 
     ini_risk = time.perf_counter()
     pfolio_assets, pfolio_weights = ASSETS, WEIGHTS
-    returnP, riskP, sharpeP = compute_portfolio_metrics(retfolio, covfolio, pfolio_assets, pfolio_weights, ANUAL_PERIOD, RISK_FREE_RATE)
+    returnP, riskP, sharpeP = compute_portfolio_metrics(daily_return, ANUAL_PERIOD, RISK_FREE_RATE, pfolio_assets, pfolio_weights)
     fin_risk = time.perf_counter()
     print(f"Portfolio metrics computed in: {fin_risk - ini_risk:.4f} seconds.")
     print(f"Portfolio Annualized Return: {returnP}")

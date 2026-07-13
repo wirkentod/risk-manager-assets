@@ -10,8 +10,6 @@ from .core import (
     compute_correlation,
     save_corr,
     # metrics
-    compute_mean, 
-    compute_covariance, 
     compute_assets_metrics,
     compute_portfolio_metrics,
     compute_efficient_frontier,
@@ -45,8 +43,6 @@ __all__ = [
     "compute_correlation",
     "save_corr",
     # compute metrics
-    "compute_mean"
-    "compute_covariance"
     "compute_assets_metrics",
     "compute_portfolio_metrics",
     "compute_efficient_frontier",
