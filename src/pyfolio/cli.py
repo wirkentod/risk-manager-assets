@@ -1,6 +1,20 @@
 """Simple CLI to compute and optionally save/plot correlations."""
 import argparse, time
-from src.pyfolio import load_data, compute_correlation, save_corr, compute_assets_metrics, compute_portfolio_metrics, compute_montecarlo_simulation, plot_heatmap, plot_montecarlo_simulation, RISK_FREE_RATE, ANUAL_PERIOD, ASSETS, WEIGHTS, NUM_SIMULATIONS
+from src.pyfolio import(
+    load_data, 
+    compute_correlation, 
+    save_corr, 
+    compute_assets_metrics, 
+    compute_portfolio_metrics, 
+    compute_efficient_frontier, 
+    plot_heatmap, 
+    plot_portfolio_frontier, 
+    plot_transition_map,    
+    RISK_FREE_RATE, 
+    ANUAL_PERIOD, 
+    ASSETS, 
+    WEIGHTS
+)
 
 def build_parser():
     p = argparse.ArgumentParser(description="Compute asset correlation matrix from CSV")
@@ -10,9 +24,8 @@ def build_parser():
     p.add_argument("--method", default="pearson", choices=("pearson", "spearman"), help="correlation method")
     p.add_argument("--out", help="path to save CSV of correlation matrix")
     p.add_argument("--plot", help="path to save heatmap image (PNG) or omit to show")
-    p.add_argument("--plotmontecarlo", help="path to save Monte Carlo simulation plot (PNG) or omit to show")
+    p.add_argument("--plotfolio", help="path to save portfolio frontier plot (PNG) or omit to show")
     return p
-
 
 def main(argv=None):
     print(f"Start:")
@@ -35,24 +48,29 @@ def main(argv=None):
     print(f"Portfolio Annualized Risk: {riskP}")
     print(f"Portfolio Annualized Sharpe Ratio: {sharpeP}")
 
-    ini_montecarlo = time.perf_counter()
-    optimal_weights, optimal_portfolio, simulated_portfolios = compute_montecarlo_simulation(df, args.term, args.dailyreturn, ANUAL_PERIOD, RISK_FREE_RATE, pfolio_assets, NUM_SIMULATIONS)
-    fin_montecarlo = time.perf_counter()
-    print(f"Monte Carlo simulation computed in: {fin_montecarlo - ini_montecarlo:.4f} seconds.")
-
+    ini_effrontier = time.perf_counter()
+    optimal_weights, optimal_portfolio, efficient_frontier_points, transition_map_points = compute_efficient_frontier(df, args.term, args.dailyreturn, ANUAL_PERIOD, RISK_FREE_RATE, pfolio_assets)
+    fin_effrontier = time.perf_counter()
+    print(f"Efficient frontier computed in: {fin_effrontier - ini_effrontier:.4f} seconds.")
+    
     # Plot results
     if args.out:
         save_corr(corr, args.out)
     if args.plot:
         plot_heatmap(corr, args.plot)
-        ini_plotmontecarlo = time.perf_counter()
-        name_plot_montecarlo = args.plotmontecarlo + args.term + "_montecarlo.png" if args.plotmontecarlo else None
-        plot_montecarlo_simulation(optimal_weights, optimal_portfolio, simulated_portfolios, pfolio_assets, assets_metrics, returnP, riskP, sharpeP, name_plot_montecarlo)
-        fin_plotmontecarlo = time.perf_counter()
-        print(f"Monte Carlo simulation plot computed in: {fin_plotmontecarlo - ini_plotmontecarlo:.4f} seconds.")
+        ini_plotportfolio = time.perf_counter()
+        name_plot_portfolio = args.plotfolio + args.term + "_" + args.dailyreturn + "_frontier.png" if args.plotfolio else None
+        plot_portfolio_frontier(optimal_weights, optimal_portfolio, efficient_frontier_points, pfolio_assets, assets_metrics, returnP, riskP, sharpeP, name_plot_portfolio)
+        fin_plotportfolio = time.perf_counter()
+        print(f"Efficient frontier plot computed in: {fin_plotportfolio - ini_plotportfolio:.4f} seconds.")
+        name_plot_transitionmap = args.plotfolio + args.term + "_" + args.dailyreturn + "_transition_map.png" if args.plotfolio else None
+        ini_plottransition = time.perf_counter()
+        plot_transition_map(transition_map_points, name_plot_transitionmap)
+        fin_plottransition = time.perf_counter()
+        print(f"Transition map plot computed in: {fin_plottransition - ini_plottransition:.4f} seconds.")
+        
     else:
         print(corr.to_string())
     
-
 if __name__ == "__main__":
     main()
