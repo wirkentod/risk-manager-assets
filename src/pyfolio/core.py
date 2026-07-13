@@ -28,17 +28,18 @@ def load_data(path:str, assets: list) -> pd.DataFrame:
     return df[assets]
 
 def compute_portfolio_metrics(
-    dailyreturn: pd.DataFrame, 
-    anualperiod: int, 
-    riskfreerate: float, 
+    expected_returns: np.ndarray,
+    cov_matrix: np.ndarray,
     pfolio_assets: list, 
-    pfolio_weights: list
+    pfolio_weights: list,
+    anualperiod: int,
+    riskfreerate: float
 ) -> tuple:
     """Compute risk metrics for a portfolio.
     """
     # Read weights from a file or define them here
-    weight = pd.Series(pfolio_weights, index = pfolio_assets)
-    return portfolio_stats(weight, dailyreturn, anualperiod, riskfreerate) #returnP, riskP, sharpeP
+    weight = pd.Series(pfolio_weights, index = pfolio_assets).values
+    return portfolio_stats(weight, expected_returns, cov_matrix, anualperiod, riskfreerate) #returnP, riskP, sharpeP
 
 def compute_assets_metrics(
     dailyreturn: pd.DataFrame, 
@@ -94,26 +95,36 @@ def compute_covariance(
     """
     return dailyreturn.cov()
 
+def compute_mean(
+    dailyreturn: pd.DataFrame
+) -> pd.DataFrame:
+    """Compute mean for numeric columns.
+    """
+    return dailyreturn.mean()
+
 def portfolio_stats(
     weights: np.ndarray, 
-    dailyreturn: pd.DataFrame, 
+    expected_returns: np.ndarray, 
+    cov_matrix: np.ndarray,
     anualperiod: int, 
     riskfreerate: float
 ) -> tuple:
-    """Computes exact portfolio statistics using external helpers."""
-    p_return = compute_return(dailyreturn, weights, anualperiod)
-    p_risk = compute_risk(dailyreturn, weights, anualperiod)
+    """Computes exact portfolio statistics using optimized linear algebra."""
+    p_return = compute_return(expected_returns, weights, anualperiod)
+    p_risk = compute_risk(cov_matrix, weights, anualperiod)
     p_sharpe = compute_sharpe_ratio(p_return, p_risk, riskfreerate)
     return p_return, p_risk, p_sharpe
 
-def compute_return(dailyreturn: pd.DataFrame, weights: np.ndarray, anualperiod: int) -> float:
-    return np.sum(weights * dailyreturn.mean()) * anualperiod # Annualized return ratio
+def compute_return(expected_return: np.ndarray, weights: np.ndarray, anualperiod: int) -> float:
+    # Point product between weigths and expected returns
+    return np.dot(weights, expected_return) * anualperiod # Annualized return ratio
 
-def compute_risk(dailyreturn: pd.DataFrame, weights: np.ndarray, anualperiod: int) -> float:
-    return np.sqrt(weights.dot(dailyreturn.cov()).dot(weights)) * np.sqrt(anualperiod) # Annualized risk ratio
+def compute_risk(cov_matrix: np.ndarray, weights: np.ndarray, anualperiod: int) -> float:
+    # Fast matricial multiplication (w^T * Cov * w)
+    return np.sqrt(np.dot(weights.T, np.dot(cov_matrix, weights))) * np.sqrt(anualperiod) # Annualized risk ratio
 
 def compute_sharpe_ratio(returnP: float, riskP: float, riskfreerate: float) -> float:
-    return (returnP - riskfreerate) / riskP # Annualized sharpe ratio
+    return (returnP - riskfreerate) / riskP
 
 def save_corr(df_corr: pd.DataFrame, out_path: str):
     """Save correlation matrix to a CSV file."""
@@ -127,16 +138,17 @@ def compute_efficient_frontier(
     riskfreerate: float, 
     pfolio_assets: list
 ) -> tuple:
-    """
-    Mathematically computes optimal portfolio weights and the efficient frontier curve
-    using externalized objective functions.
-    """
-    num_assets = len(pfolio_assets)
     
-    # Tuples containing external variables needed by the functions
-    optimization_args = (dailyreturn, anualperiod, riskfreerate)
-
-    # --- OPTIMIZER CONSTRAINTS AND BOUNDS ---
+    # --- 1. PRECOMPUTAR (SOLUCIÓN AL CUELLO DE BOTELLA) ---
+    # Se calcula una sola vez fuera de los optimizadores
+    asset_returns = dailyreturn[pfolio_assets].mean() * anualperiod
+    cov_matrix = dailyreturn[pfolio_assets].cov() * anualperiod
+    
+    num_assets = len(pfolio_assets)
+    # Pasamos datos estáticos (retornos y covarianza) en lugar del DataFrame completo
+    optimization_args = (asset_returns.values, cov_matrix.values, anualperiod, riskfreerate)
+    
+    # --- CONSTRAINTS AND BOUNDS ---
     sum_weights_constraint = {'type': 'eq', 'fun': lambda w: np.sum(w) - 1.0}
     bounds = tuple((0.0, 1.0) for _ in range(num_assets))
     init_weights = np.array(num_assets * [1.0 / num_assets])
@@ -145,79 +157,70 @@ def compute_efficient_frontier(
     # OPTIMIZATION 1: MAXIMIZE SHARPE RATIO
     # =========================================================================
     opt_sharpe = sco.minimize(
-        fun=negate_sharpe, 
-        x0=init_weights, 
-        args=optimization_args,  # <-- ARGS PASSED HERE
-        method='SLSQP', 
-        bounds=bounds, 
+        fun=negate_sharpe, # Debe aceptar (w, asset_returns, cov_matrix, rf)
+        x0=init_weights,
+        args=optimization_args,
+        method='SLSQP',
+        bounds=bounds,
         constraints=[sum_weights_constraint]
     )
-    
     optimal_weights = opt_sharpe['x']
     opt_ret, opt_vol, opt_sh = portfolio_stats(optimal_weights, *optimization_args)
-    
-    optimal_portfolio = pd.Series({
-        'Return': opt_ret, 'Risk': opt_vol, 'SharpeRatio': opt_sh
-    })
+    optimal_portfolio = pd.Series({'Return': opt_ret, 'Risk': opt_vol, 'SharpeRatio': opt_sh})
 
     # =========================================================================
     # OPTIMIZATION 2: EFFICIENT FRONTIER CURVE MAPPING
     # =========================================================================
     opt_min_vol = sco.minimize(
-        fun=minimize_volatility, 
-        x0=init_weights, 
-        args=optimization_args,  # <-- ARGS PASSED HERE
-        method='SLSQP', 
-        bounds=bounds, 
+        fun=minimize_volatility, # Debe aceptar (w, asset_returns, cov_matrix, rf)
+        x0=init_weights,
+        args=optimization_args,
+        method='SLSQP',
+        bounds=bounds,
         constraints=[sum_weights_constraint]
     )
     
-    # Extract the numeric values for the boundaries
     min_return_boundary = portfolio_stats(opt_min_vol['x'], *optimization_args)[0]
-    max_return_boundary = (dailyreturn.mean() * anualperiod).max()
-
+    max_return_boundary = asset_returns.max()
+    
     target_returns = np.linspace(min_return_boundary, max_return_boundary, 20)
     frontier_vols = []
     transition_weights_list = []
 
+    # El bucle ahora es drásticamente más rápido porque las funciones internas solo hacen álgebra lineal básica
     for target in target_returns:
-        # Extra constraint: portfolio return must match target
         frontier_constraints = [
             sum_weights_constraint,
-            {'type': 'eq', 'fun': lambda w: portfolio_stats(w, *optimization_args)[0] - target}
+            # Producto punto rápido en lugar de llamar a una función pesada
+            {'type': 'eq', 'fun': lambda w, r=asset_returns.values: np.dot(w, r) - target}
         ]
         
         res = sco.minimize(
-            fun=minimize_volatility, 
-            x0=init_weights, 
-            args=optimization_args,  # <-- ARGS PASSED HERE
-            method='SLSQP', 
-            bounds=bounds, 
+            fun=minimize_volatility,
+            x0=init_weights,
+            args=optimization_args,
+            method='SLSQP',
+            bounds=bounds,
             constraints=frontier_constraints
         )
-        # Save volatility metric
+        
         frontier_vols.append(res['fun'])
-        # Save exact optimized array of weights for this specific risk level
         transition_weights_list.append(res['x'])
 
+    # --- CONSOLIDATE DATA ---
     efficient_frontier_points = pd.DataFrame({
         'Return': target_returns,
         'Risk': frontier_vols,
-        'SharpeRatio': compute_sharpe_ratio(target_returns, np.array(frontier_vols), riskfreerate)
+        'SharpeRatio': (target_returns - riskfreerate) / np.array(frontier_vols)
     })
 
-    # --- CONSOLIDATE TRANSITION MAP DATA ---
-    # DataFrame rows = Risk levels (X), columns = Assets, values = allocation weights (Y)
     transition_map_points = pd.DataFrame(
-        transition_weights_list, 
-        columns=pfolio_assets, 
-        index=frontier_vols  # Set the risk/volatility as the index for easier plotting
+        transition_weights_list,
+        columns=pfolio_assets,
+        index=frontier_vols
     )
 
-    # --- CONSOLE REPORTING ---
-    print(f"Optimal Portfolio (Exact):\n{optimal_portfolio}\n")
-    print(f"Optimal Weights (Exact):\n{pd.Series(optimal_weights, index=pfolio_assets).sort_values(ascending=False)}")
-    return optimal_weights, optimal_portfolio, efficient_frontier_points, transition_map_points 
+    return optimal_weights, optimal_portfolio, efficient_frontier_points, transition_map_points
 
 def compute_montecarlo_simulation(
     dailyreturn: pd.DataFrame, 
@@ -263,23 +266,25 @@ def compute_montecarlo_simulation(
     print(f"Optimal Weights:\n{pd.Series(optimal_weights, index=pfolio_assets).sort_values(ascending=False)}")
     return optimal_weights, optimal_portfolio, simulated_portfolios
 
-def negate_sharpe(
-    weights: np.ndarray, 
-    dailyreturn: pd.DataFrame, 
-    anualperiod: int, 
-    riskfreerate: float
-) -> float:
-    """Objective function to maximize Sharpe Ratio."""
-    return -portfolio_stats(weights, dailyreturn, anualperiod, riskfreerate)[2]
-
 def minimize_volatility(
     weights: np.ndarray, 
-    dailyreturn: pd.DataFrame, 
-    anualperiod: int, 
+    asset_returns: pd.DataFrame, 
+    cov_matrix: np.ndarray,
+    anualperiod: int,
     riskfreerate: float
 ) -> float:
     """Objective function to minimize Volatility."""
-    return portfolio_stats(weights, dailyreturn, anualperiod, riskfreerate)[1]
+    return np.sqrt(np.dot(weights.T, np.dot(cov_matrix, weights)))
+
+def negate_sharpe(
+    weights: np.ndarray, 
+    asset_returns: pd.DataFrame, 
+    cov_matrix: np.ndarray, 
+    anualperiod: int,
+    riskfreerate: float
+) -> float:
+    """Objective function to maximize Sharpe Ratio."""
+    return -portfolio_stats(weights, asset_returns, cov_matrix, anualperiod, riskfreerate)[2]
 
 def compute_pca(
     dailyreturn: pd.DataFrame, 
