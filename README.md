@@ -16,7 +16,7 @@ pip install -r requirements.txt
 2. Run the CLI on the sample data:
 
 ```bash
-python -m src.pyfolio.cli data/sample_assets.csv --term 1A --dailyreturn log --method pearson --out out/corr.csv --plot out/corr.png --plotfolio out/pflio
+python -m src.pyfolio.cli data/sample_assets.csv --term 1A --dailychange log --method pearson --out out/corr.csv --plot out/corr.png --plotfolio out/pflio
 ```
 
 Files

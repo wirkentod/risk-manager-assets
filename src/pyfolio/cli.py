@@ -2,6 +2,7 @@
 import argparse, time
 from src.pyfolio import(
     load_data, 
+    compute_daily_return,
     compute_correlation, 
     save_corr, 
     compute_assets_metrics, 
@@ -19,7 +20,7 @@ from src.pyfolio import(
 def build_parser():
     p = argparse.ArgumentParser(description="Compute asset correlation matrix from CSV")
     p.add_argument("input", help="path to input CSV file")
-    p.add_argument("--dailyreturn", default="log", choices=("simple", "log"), help="daily return method")
+    p.add_argument("--dailychange", default="log", choices=("simple", "log"), help="daily return change method")
     p.add_argument("--term", default="3M", choices=("1W", "1M", "2M", "3M", "6M", "1A", "2A"), help="term scenario to compute")
     p.add_argument("--method", default="pearson", choices=("pearson", "spearman"), help="correlation method")
     p.add_argument("--out", help="path to save CSV of correlation matrix")
@@ -32,16 +33,17 @@ def main(argv=None):
     ini_load = time.perf_counter()
     parser = build_parser()
     args = parser.parse_args(argv)
-    df = load_data(args.input, ASSETS)
+    datafolio = load_data(args.input, ASSETS)
     fin_load =time.perf_counter()
+    daily_return = compute_daily_return(datafolio, args.term, args.dailychange)
     print(f"Data loaded in: {fin_load - ini_load:.4f} seconds.")
-    corr = compute_correlation(df, args.term, args.dailyreturn,  method=args.method)
+    corr = compute_correlation(daily_return, method=args.method)
     # Compute metrics assets by portfolio
-    assets_metrics = compute_assets_metrics(df, args.term, args.dailyreturn, ANUAL_PERIOD, RISK_FREE_RATE)
+    assets_metrics = compute_assets_metrics(daily_return, ANUAL_PERIOD, RISK_FREE_RATE)
 
     ini_risk = time.perf_counter()
     pfolio_assets, pfolio_weights = ASSETS, WEIGHTS
-    returnP, riskP, sharpeP = compute_portfolio_metrics(df, args.term, args.dailyreturn, ANUAL_PERIOD, RISK_FREE_RATE, pfolio_assets, pfolio_weights)
+    returnP, riskP, sharpeP = compute_portfolio_metrics(daily_return, ANUAL_PERIOD, RISK_FREE_RATE, pfolio_assets, pfolio_weights)
     fin_risk = time.perf_counter()
     print(f"Portfolio metrics computed in: {fin_risk - ini_risk:.4f} seconds.")
     print(f"Portfolio Annualized Return: {returnP}")
@@ -49,7 +51,7 @@ def main(argv=None):
     print(f"Portfolio Annualized Sharpe Ratio: {sharpeP}")
 
     ini_effrontier = time.perf_counter()
-    optimal_weights, optimal_portfolio, efficient_frontier_points, transition_map_points = compute_efficient_frontier(df, args.term, args.dailyreturn, ANUAL_PERIOD, RISK_FREE_RATE, pfolio_assets)
+    optimal_weights, optimal_portfolio, efficient_frontier_points, transition_map_points = compute_efficient_frontier(daily_return, ANUAL_PERIOD, RISK_FREE_RATE, pfolio_assets)
     fin_effrontier = time.perf_counter()
     print(f"Efficient frontier computed in: {fin_effrontier - ini_effrontier:.4f} seconds.")
     
@@ -59,11 +61,11 @@ def main(argv=None):
     if args.plot:
         plot_heatmap(corr, args.plot)
         ini_plotportfolio = time.perf_counter()
-        name_plot_portfolio = args.plotfolio + args.term + "_" + args.dailyreturn + "_frontier.png" if args.plotfolio else None
+        name_plot_portfolio = args.plotfolio + args.term + "_" + args.dailychange + "_frontier.png" if args.plotfolio else None
         plot_portfolio_frontier(optimal_weights, optimal_portfolio, efficient_frontier_points, pfolio_assets, assets_metrics, returnP, riskP, sharpeP, name_plot_portfolio)
         fin_plotportfolio = time.perf_counter()
         print(f"Efficient frontier plot computed in: {fin_plotportfolio - ini_plotportfolio:.4f} seconds.")
-        name_plot_transitionmap = args.plotfolio + args.term + "_" + args.dailyreturn + "_transition_map.png" if args.plotfolio else None
+        name_plot_transitionmap = args.plotfolio + args.term + "_" + args.dailychange + "_transition_map.png" if args.plotfolio else None
         ini_plottransition = time.perf_counter()
         plot_transition_map(transition_map_points, name_plot_transitionmap)
         fin_plottransition = time.perf_counter()

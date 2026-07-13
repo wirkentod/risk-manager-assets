@@ -6,6 +6,7 @@
 from .core import (
     # process data
     load_data,
+    compute_daily_return,
     compute_correlation,
     save_corr,
     # metrics
@@ -37,7 +38,8 @@ from .config.lector import (
 # =====================================================================
 __all__ = [
     # functions process data
-    "load_data",
+    "load_data", 
+    "compute_daily_return", 
     "compute_correlation",
     "save_corr",
     # compute metrics
