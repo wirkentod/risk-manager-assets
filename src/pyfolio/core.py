@@ -1,8 +1,10 @@
 """Core functions: load data and compute correlations."""
 from pathlib import Path
+from sklearn.decomposition import PCA
 import pandas as pd
 import numpy as np
 import scipy.optimize as sco
+
 # -----------------------------------------------------------------------------------
 # Author: Christian Quispe
 # Date: 08/07/26
@@ -26,38 +28,28 @@ def load_data(path:str, assets: list) -> pd.DataFrame:
     return df[assets]
 
 def compute_portfolio_metrics(
-    df: pd.DataFrame, 
-    term: str, 
-    dailyreturn: int, 
+    dailyreturn: pd.DataFrame, 
     anualperiod: int, 
     riskfreerate: float, 
     pfolio_assets: list, 
     pfolio_weights: list
 ) -> tuple:
     """Compute risk metrics for a portfolio.
-    term: '1W', '1M', '2M', '3M', '6M', '1A', '2A'.
-    dailyreturn: 'log', 'simple'
     """
-    dr = compute_daily_return(df, term, dailyreturn)
     # Read weights from a file or define them here
     weight = pd.Series(pfolio_weights, index = pfolio_assets)
-    return portfolio_stats(weight, dr, anualperiod, riskfreerate) #returnP, riskP, sharpeP
+    return portfolio_stats(weight, dailyreturn, anualperiod, riskfreerate) #returnP, riskP, sharpeP
 
 def compute_assets_metrics(
-    df: pd.DataFrame, 
-    term: str, 
-    dailyreturn: int, 
+    dailyreturn: pd.DataFrame, 
     anualperiod: int, 
     riskfreerate: float
 ) -> pd.DataFrame:
     """Compute risk metrics for each asset.
-    term: '1W', '1M', '2M', '3M', '6M', '1A', '2A'.
-    dailyreturn: 'log', 'simple'
     """
-    dr = compute_daily_return(df, term, dailyreturn)
     # Compute return, risk and sharpe ratio for each asset
-    returns = dr.mean() * anualperiod # Annualized return
-    risks = dr.std() * np.sqrt(anualperiod) # Annualized volatility
+    returns = dailyreturn.mean() * anualperiod # Annualized return
+    risks = dailyreturn.std() * np.sqrt(anualperiod) # Annualized volatility
     sharpe_ratios = (returns - riskfreerate) / risks # Annualized Sharpe ratio
     print(f"Return Ordered:\n {returns.sort_values(ascending=False)}")
     print(f"Risks Ordered:\n {risks.sort_values(ascending=True)}")
@@ -70,54 +62,55 @@ def compute_assets_metrics(
     })
 
 def compute_daily_return(
-    df: pd.DataFrame, 
+    datafolio: pd.DataFrame, 
     term: str, 
-    dailyreturn: str
+    dailychange: str
 ) -> pd.DataFrame:
     """Compute a term daily return for a portfolio.
     term: '1W', '1M', '2M', '3M', '6M', '1A', '2A'.
-    dailyreturn: 'log', 'simple'
+    dailychange: 'log', 'simple'
     """
     term_choice = {"1W": 5, "1M": 21, "2M": 42, "3M": 63, "6M": 126, "1A": 252, "2A": 504}
-    numeric = df.select_dtypes(include="number")[:term_choice[term]+1]
-    if dailyreturn == "log":
+    numeric = datafolio.select_dtypes(include="number")[:term_choice[term]+1]
+    if dailychange == "log":
         return np.log(numeric / numeric.shift(-1))
-    elif dailyreturn == "simple":
+    elif dailychange == "simple":
         return (numeric/numeric.shift(-1)-1)
     else:
         raise ValueError("Invalid daily return method. Choose 'log' or 'simple'.")
  
 def compute_correlation(
-    df: pd.DataFrame, 
-    term: str, 
-    dailyreturn: str, 
+    dailyreturn: pd.DataFrame, 
     method="pearson"
 ) -> pd.DataFrame:
     """Compute correlation matrix for numeric columns.
-    term: '1W', '1M', '2M', '3M', '6M', '1A', '2A'.
-    dailyreturn: 'log', 'simple'.
-    method: 'pearson', 'spearman', 'kendall'
     """
-    dr = compute_daily_return(df, term, dailyreturn)
-    return dr.corr(method=method)
+    return dailyreturn.corr(method=method)
+
+def compute_covariance(
+    dailyreturn: pd.DataFrame
+) -> pd.DataFrame:
+    """Compute covariance matrix for numeric columns.
+    """
+    return dailyreturn.cov()
 
 def portfolio_stats(
     weights: np.ndarray, 
-    dr: pd.DataFrame, 
+    dailyreturn: pd.DataFrame, 
     anualperiod: int, 
     riskfreerate: float
 ) -> tuple:
     """Computes exact portfolio statistics using external helpers."""
-    p_return = compute_return(dr, weights, anualperiod)
-    p_risk = compute_risk(dr, weights, anualperiod)
+    p_return = compute_return(dailyreturn, weights, anualperiod)
+    p_risk = compute_risk(dailyreturn, weights, anualperiod)
     p_sharpe = compute_sharpe_ratio(p_return, p_risk, riskfreerate)
     return p_return, p_risk, p_sharpe
 
-def compute_return(dr: pd.DataFrame, weights: np.ndarray, anualperiod: int) -> float:
-    return np.sum(weights * dr.mean()) * anualperiod # Annualized return ratio
+def compute_return(dailyreturn: pd.DataFrame, weights: np.ndarray, anualperiod: int) -> float:
+    return np.sum(weights * dailyreturn.mean()) * anualperiod # Annualized return ratio
 
-def compute_risk(dr: pd.DataFrame, weights: np.ndarray, anualperiod: int) -> float:
-    return np.sqrt(weights.dot(dr.cov()).dot(weights)) * np.sqrt(anualperiod) # Annualized risk ratio
+def compute_risk(dailyreturn: pd.DataFrame, weights: np.ndarray, anualperiod: int) -> float:
+    return np.sqrt(weights.dot(dailyreturn.cov()).dot(weights)) * np.sqrt(anualperiod) # Annualized risk ratio
 
 def compute_sharpe_ratio(returnP: float, riskP: float, riskfreerate: float) -> float:
     return (returnP - riskfreerate) / riskP # Annualized sharpe ratio
@@ -129,9 +122,7 @@ def save_corr(df_corr: pd.DataFrame, out_path: str):
     df_corr.to_csv(p)
 
 def compute_efficient_frontier(
-    df: pd.DataFrame, 
-    term: str, 
-    dailyreturn: str, 
+    dailyreturn: pd.DataFrame, 
     anualperiod: int, 
     riskfreerate: float, 
     pfolio_assets: list
@@ -140,11 +131,10 @@ def compute_efficient_frontier(
     Mathematically computes optimal portfolio weights and the efficient frontier curve
     using externalized objective functions.
     """
-    dr = compute_daily_return(df, term, dailyreturn)
     num_assets = len(pfolio_assets)
     
     # Tuples containing external variables needed by the functions
-    optimization_args = (dr, anualperiod, riskfreerate)
+    optimization_args = (dailyreturn, anualperiod, riskfreerate)
 
     # --- OPTIMIZER CONSTRAINTS AND BOUNDS ---
     sum_weights_constraint = {'type': 'eq', 'fun': lambda w: np.sum(w) - 1.0}
@@ -184,9 +174,9 @@ def compute_efficient_frontier(
     
     # Extract the numeric values for the boundaries
     min_return_boundary = portfolio_stats(opt_min_vol['x'], *optimization_args)[0]
-    max_return_boundary = (dr.mean() * anualperiod).max()
+    max_return_boundary = (dailyreturn.mean() * anualperiod).max()
 
-    target_returns = np.linspace(min_return_boundary, max_return_boundary, 100)
+    target_returns = np.linspace(min_return_boundary, max_return_boundary, 20)
     frontier_vols = []
     transition_weights_list = []
 
@@ -230,23 +220,17 @@ def compute_efficient_frontier(
     return optimal_weights, optimal_portfolio, efficient_frontier_points, transition_map_points 
 
 def compute_montecarlo_simulation(
-    df: pd.DataFrame, 
-    term: str, 
-    dailyreturn: str, 
+    dailyreturn: pd.DataFrame, 
     anualperiod: int, 
     riskfreerate: float, 
     pfolio_assets: list, 
     num_simulations: int
 ) -> tuple:
     """Compute Monte Carlo simulation for portfolio optimization.
-    term: '1W', '1M', '2M', '3M', '6M', '1A', '2A'.
-    dailyreturn: 'log', 'simple'.
     anualperiod: number of trading days in a year (e.g., 252).
     pfolio_assets: list of asset names.
     num_simulations: number of random portfolios to simulate.
     """
-    # Daily return Portfolio
-    dr = compute_daily_return(df, term, dailyreturn)
     # MonteCarlo Simulation
     results = np.zeros((4, num_simulations))
     weights_record = np.zeros((len(pfolio_assets), num_simulations))
@@ -256,9 +240,9 @@ def compute_montecarlo_simulation(
         weights = np.random.dirichlet([alpha_param] * len(pfolio_assets))
         weights_record[:, i] = weights
         # Annualized portfolio return
-        portfolio_return = compute_return(dr, weights, anualperiod) 
+        portfolio_return = compute_return(dailyreturn, weights, anualperiod) 
         # Annualized portfolio volatility
-        portfolio_stddev = compute_risk(dr, weights, anualperiod)
+        portfolio_stddev = compute_risk(dailyreturn, weights, anualperiod)
         # Annualized Sharpe ratio
         portfolio_sharperatio = compute_sharpe_ratio(portfolio_return, portfolio_stddev, riskfreerate)
 
@@ -281,18 +265,30 @@ def compute_montecarlo_simulation(
 
 def negate_sharpe(
     weights: np.ndarray, 
-    dr: pd.DataFrame, 
+    dailyreturn: pd.DataFrame, 
     anualperiod: int, 
     riskfreerate: float
 ) -> float:
     """Objective function to maximize Sharpe Ratio."""
-    return -portfolio_stats(weights, dr, anualperiod, riskfreerate)[2]
+    return -portfolio_stats(weights, dailyreturn, anualperiod, riskfreerate)[2]
 
 def minimize_volatility(
     weights: np.ndarray, 
-    dr: pd.DataFrame, 
+    dailyreturn: pd.DataFrame, 
     anualperiod: int, 
     riskfreerate: float
 ) -> float:
     """Objective function to minimize Volatility."""
-    return portfolio_stats(weights, dr, anualperiod, riskfreerate)[1]
+    return portfolio_stats(weights, dailyreturn, anualperiod, riskfreerate)[1]
+
+def compute_pca(
+    dailyreturn: pd.DataFrame, 
+    anualperiod: int, 
+    pfolio_assets: list
+) -> tuple:
+    """Compute PCA for dimensionality reduction."""
+    #clean the data by dropping rows with NaN values for the selected assets
+    dr_filtered = dailyreturn[pfolio_assets].dropna()
+
+    pass  # Placeholder for PCA implementation
+
