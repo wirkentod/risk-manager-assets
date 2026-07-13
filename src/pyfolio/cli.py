@@ -59,11 +59,11 @@ def main(argv=None):
     if args.plot:
         plot_heatmap(corr, args.plot)
         ini_plotportfolio = time.perf_counter()
-        name_plot_portfolio = args.plotfolio + args.term + "_frontier.png" if args.plotfolio else None
+        name_plot_portfolio = args.plotfolio + args.term + "_" + args.dailyreturn + "_frontier.png" if args.plotfolio else None
         plot_portfolio_frontier(optimal_weights, optimal_portfolio, efficient_frontier_points, pfolio_assets, assets_metrics, returnP, riskP, sharpeP, name_plot_portfolio)
         fin_plotportfolio = time.perf_counter()
         print(f"Efficient frontier plot computed in: {fin_plotportfolio - ini_plotportfolio:.4f} seconds.")
-        name_plot_transitionmap = args.plotfolio + args.term + "_transition_map.png" if args.plotfolio else None
+        name_plot_transitionmap = args.plotfolio + args.term + "_" + args.dailyreturn + "_transition_map.png" if args.plotfolio else None
         ini_plottransition = time.perf_counter()
         plot_transition_map(transition_map_points, name_plot_transitionmap)
         fin_plottransition = time.perf_counter()
