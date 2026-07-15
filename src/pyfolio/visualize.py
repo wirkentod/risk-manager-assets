@@ -4,6 +4,7 @@ from pathlib import Path
 from matplotlib.ticker import FuncFormatter
 import matplotlib.pyplot as plt
 import seaborn as sns
+import pandas as pd
 import numpy as np
 
 def plot_heatmap(corr, out_path=None, figsize=(10, 8), cmap="vlag"):
@@ -203,7 +204,16 @@ def plot_transition_map(transition_map_df, out_path=None):
         plt.close()
     else:
         plt.show()
-    
+       
+def plot_assets_metrics(assets_metrics):
+    print(f"Return Ordered (%):\n {assets_metrics['Return'].sort_values(ascending=False).round(4)*100}")
+    print(f"Risks Ordered (%):\n {assets_metrics['Risk'].sort_values(ascending=True).round(4)*100}")
+    print(f"Sharpe Ratios Ordered:\n {assets_metrics['SharpeRatio'].sort_values(ascending=False).round(2)}")
+
+def plot_efficient_frontier_metrics(optimal_weights, optimal_portfolio, pfolio_assets):
+    print(f"Optimal Portfolio (Exact):\n{optimal_portfolio.round(2)}\n")
+    print(f"Optimal Weights (Exact, %):\n{pd.Series(optimal_weights, index=pfolio_assets).sort_values(ascending=False).round(4)*100}")
+
 def plot_portfolio_pca(eigenvalues, eigenvectors):
     print("Reporte de Estructura de Varianza Explicada")
     print("PRINCIPAL COMPONENT ANALYSIS (Latent Risk Factors Spectrum)")

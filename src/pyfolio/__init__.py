@@ -21,7 +21,9 @@ from .visualize import (
     plot_heatmap, 
     plot_portfolio_frontier,
     plot_transition_map,
-    plot_portfolio_pca
+    plot_portfolio_pca,
+    plot_assets_metrics,
+    plot_efficient_frontier_metrics
 )
 
 # =====================================================================
@@ -55,6 +57,8 @@ __all__ = [
     "plot_portfolio_frontier",
     "plot_transition_map",
     "plot_portfolio_pca",
+    "plot_assets_metrics",
+    "plot_efficient_frontier_metrics", 
     # global variables
     "RISK_FREE_RATE",
     "ANUAL_PERIOD",

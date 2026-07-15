@@ -51,9 +51,6 @@ def compute_assets_metrics(
     returns = dailyreturn.mean() * anualperiod # Annualized return
     risks = dailyreturn.std() * np.sqrt(anualperiod) # Annualized volatility
     sharpe_ratios = (returns - riskfreerate) / risks # Annualized Sharpe ratio
-    print(f"Return Ordered:\n {returns.sort_values(ascending=False)}")
-    print(f"Risks Ordered:\n {risks.sort_values(ascending=True)}")
-    print(f"Sharpe Ratios Ordered:\n {sharpe_ratios.sort_values(ascending=False)}")
     # DataFrame with assets metrics
     return pd.DataFrame({
         'Return': returns,
@@ -113,7 +110,7 @@ def compute_return(dailyreturn: pd.DataFrame, weights: np.ndarray, anualperiod: 
     return np.sum(weights * dailyreturn.mean()) * anualperiod # Annualized return ratio
 
 def compute_risk(dailyreturn: pd.DataFrame, weights: np.ndarray, anualperiod: int) -> float:
-    return np.sqrt(weights.dot(dailyreturn.cov()).dot(weights)) * np.sqrt(anualperiod) # Annualized risk ratio
+    return np.sqrt(weights.dot(compute_covariance(dailyreturn)).dot(weights)) * np.sqrt(anualperiod) # Annualized risk ratio
 
 def compute_sharpe_ratio(returnP: float, riskP: float, riskfreerate: float) -> float:
     return (returnP - riskfreerate) / riskP # Annualized sharpe ratio
@@ -216,10 +213,6 @@ def compute_efficient_frontier(
         columns=pfolio_assets, 
         index=frontier_vols  # Set the risk/volatility as the index for easier plotting
     )
-
-    # --- CONSOLE REPORTING ---
-    print(f"Optimal Portfolio (Exact):\n{optimal_portfolio}\n")
-    print(f"Optimal Weights (Exact):\n{pd.Series(optimal_weights, index=pfolio_assets).sort_values(ascending=False)}")
     return optimal_weights, optimal_portfolio, efficient_frontier_points, transition_map_points 
 
 def compute_montecarlo_simulation(
@@ -261,9 +254,6 @@ def compute_montecarlo_simulation(
     optimal_idx = simulated_portfolios['SharpeRatio'].idxmax()
     optimal_portfolio = simulated_portfolios.loc[optimal_idx]
     optimal_weights = weights_record[:, optimal_idx]
-
-    print(f"Optimal Portfolio:\n{optimal_portfolio}")
-    print(f"Optimal Weights:\n{pd.Series(optimal_weights, index=pfolio_assets).sort_values(ascending=False)}")
     return optimal_weights, optimal_portfolio, simulated_portfolios
 
 def negate_sharpe(
