@@ -10,6 +10,7 @@ from .core import (
     compute_correlation,
     save_corr,
     # metrics
+    compute_pca,
     compute_assets_metrics,
     compute_portfolio_metrics,
     compute_efficient_frontier,
@@ -19,7 +20,8 @@ from .visualize import (
     # visualization functions
     plot_heatmap, 
     plot_portfolio_frontier,
-    plot_transition_map
+    plot_transition_map,
+    plot_portfolio_pca
 )
 
 # =====================================================================
@@ -43,6 +45,7 @@ __all__ = [
     "compute_correlation",
     "save_corr",
     # compute metrics
+    "compute_pca",
     "compute_assets_metrics",
     "compute_portfolio_metrics",
     "compute_efficient_frontier",
@@ -51,6 +54,7 @@ __all__ = [
     "plot_heatmap",
     "plot_portfolio_frontier",
     "plot_transition_map",
+    "plot_portfolio_pca",
     # global variables
     "RISK_FREE_RATE",
     "ANUAL_PERIOD",

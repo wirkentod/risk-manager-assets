@@ -1,7 +1,8 @@
 """Visualization helpers for correlation matrices."""
+from adjustText import adjust_text
 from pathlib import Path
-import matplotlib.pyplot as plt
 from matplotlib.ticker import FuncFormatter
+import matplotlib.pyplot as plt
 import seaborn as sns
 import numpy as np
 
@@ -51,10 +52,9 @@ def plot_portfolio_frontier(optimal_weights, optimal_portfolio, simulated_portfo
     # Annotate asset tickers for each individual asset
     # Optional: If adjustText library is installed, use it to automatically prevent overlaps.
     try:
-        from adjustText import adjust_text
         texts = []
         for ticker, asset in assets_metrics.iterrows():
-            texts.append(ax.text(asset['Risk'], asset['Return'], ticker, fontsize=9, color='black', weight='bold', zorder=6))
+            texts.append(ax.text(asset['Risk'], asset['Return'], ticker, fontsize=9, color='black', weight='bold', zorder=6, ha='center', va='bottom'))
         adjust_text(texts, arrowprops=dict(arrowstyle="->", color='gray', lw=0.5))
     except ImportError:
         # Fallback if adjustText is not available
@@ -203,3 +203,28 @@ def plot_transition_map(transition_map_df, out_path=None):
         plt.close()
     else:
         plt.show()
+    
+def plot_portfolio_pca(eigenvalues, eigenvectors):
+    print("Reporte de Estructura de Varianza Explicada")
+    print("PRINCIPAL COMPONENT ANALYSIS (Latent Risk Factors Spectrum)")
+    print("-" * 80)
+    cumulative_var = 0
+    for i, var in enumerate(eigenvalues):
+        cumulative_var += var
+        print(f"PC{i+1} Eigenvalue Explanation: {var*100:.2f}% of total, accum: {cumulative_var*100:.2f}% portfolio variance.")
+    print("\n" + "-" * 80)
+    print("FACTOR LOADINGS MATRIX (Asset Sensitivity to Latent Factors)")
+    print("-" * 80)
+    # Formatear la matriz de cargas para identificar rápidamente dominancias
+    print(eigenvectors.round(4).to_string())
+    print("\n" + "-" * 80)
+    print("Market Factor PC1")
+    print(eigenvectors.round(4)["PC1"].sort_values(ascending=False))
+    
+    print("\n" + "-" * 80)
+    print("Factor PC2")
+    print(eigenvectors.round(4)["PC2"].sort_values(ascending=False))
+
+    print("\n" + "-" * 80)
+    print("Factor PC3")
+    print(eigenvectors.round(4)["PC3"].sort_values(ascending=False))

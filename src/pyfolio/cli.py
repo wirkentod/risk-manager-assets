@@ -5,12 +5,14 @@ from src.pyfolio import(
     compute_daily_return,
     compute_correlation, 
     save_corr, 
+    compute_pca, 
     compute_assets_metrics, 
     compute_portfolio_metrics, 
     compute_efficient_frontier, 
     plot_heatmap, 
     plot_portfolio_frontier, 
-    plot_transition_map,    
+    plot_transition_map, 
+    plot_portfolio_pca,  
     RISK_FREE_RATE, 
     ANUAL_PERIOD, 
     ASSETS, 
@@ -35,11 +37,13 @@ def main(argv=None):
     args = parser.parse_args(argv)
     datafolio = load_data(args.input, ASSETS)
     fin_load =time.perf_counter()
-    daily_return = compute_daily_return(datafolio, args.term, args.dailychange)
+    daily_return = compute_daily_return(datafolio, args.term, args.dailychange).dropna()
     print(f"Data loaded in: {fin_load - ini_load:.4f} seconds.")
     corr = compute_correlation(daily_return, method=args.method)
     # Compute metrics assets by portfolio
     assets_metrics = compute_assets_metrics(daily_return, ANUAL_PERIOD, RISK_FREE_RATE)
+    # Compute pca metrics by portfolio
+    eigenvaluesfolio, eigenvectorsfolio = compute_pca(daily_return, ANUAL_PERIOD, ASSETS)
 
     ini_risk = time.perf_counter()
     pfolio_assets, pfolio_weights = ASSETS, WEIGHTS
@@ -59,6 +63,7 @@ def main(argv=None):
     if args.out:
         save_corr(corr, args.out)
     if args.plot:
+        plot_portfolio_pca(eigenvaluesfolio, eigenvectorsfolio)
         plot_heatmap(corr, args.plot)
         ini_plotportfolio = time.perf_counter()
         name_plot_portfolio = args.plotfolio + args.term + "_" + args.dailychange + "_frontier.png" if args.plotfolio else None

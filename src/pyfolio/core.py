@@ -78,7 +78,10 @@ def compute_daily_return(
         return (numeric/numeric.shift(-1)-1)
     else:
         raise ValueError("Invalid daily return method. Choose 'log' or 'simple'.")
- 
+
+def standarized_daily_return(dailyreturn: pd.DataFrame) -> pd.DataFrame:
+    return (dailyreturn - dailyreturn.mean()) / dailyreturn.std()
+
 def compute_correlation(
     dailyreturn: pd.DataFrame, 
     method="pearson"
@@ -287,8 +290,22 @@ def compute_pca(
     pfolio_assets: list
 ) -> tuple:
     """Compute PCA for dimensionality reduction."""
-    #clean the data by dropping rows with NaN values for the selected assets
-    dr_filtered = dailyreturn[pfolio_assets].dropna()
-
-    pass  # Placeholder for PCA implementation
+    #compute covariance matrix and annualize it
+    #cov_matrix_annualized = compute_covariance(dailyreturn) * anualperiod
+    #corr_matrix = compute_correlation(dailyreturn)
+    dailyreturnstandarized = standarized_daily_return(dailyreturn)
+    #only if we consider 3 vector risk: (a) market/beta, (b) sectorial y (c) money rotation
+    #pca = PCA(n_components=min(3, len(pfolio_assets)))
+    pca = PCA(n_components=len(pfolio_assets))
+    #compute eigenvalues and eigenvectors
+    pca.fit(dailyreturnstandarized)
+    #eigenvalues (type: np.ndarray), variance explained by each component:
+    eigenvalues = pca.explained_variance_ratio_
+    #eigenvector (type: pd.DataFrame), load factors, relation between each asset and component
+    eigenvectors = pd.DataFrame(
+        pca.components_.T, 
+        columns=[f'PC{i+1}' for i in range(pca.n_components_)], 
+        index=pfolio_assets
+    )
+    return eigenvalues, eigenvectors
 
