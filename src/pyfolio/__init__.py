@@ -8,8 +8,10 @@ from .core import (
     load_data,
     compute_daily_return,
     compute_correlation,
+    compute_covariance,
     save_corr,
     # metrics
+    compute_risk_descomposition, 
     compute_pca,
     compute_assets_metrics,
     compute_portfolio_metrics,
@@ -18,6 +20,7 @@ from .core import (
 )
 from .visualize import (
     # visualization functions
+    plot_risk_descomposition, 
     plot_heatmap, 
     plot_portfolio_frontier,
     plot_transition_map,
@@ -45,14 +48,17 @@ __all__ = [
     "load_data", 
     "compute_daily_return", 
     "compute_correlation",
+    "compute_covariance",
     "save_corr",
     # compute metrics
+    "compute_risk_descomposition",
     "compute_pca",
     "compute_assets_metrics",
     "compute_portfolio_metrics",
     "compute_efficient_frontier",
     "compute_montecarlo_simulation",
     # visualization functions
+    "plot_risk_descomposition", 
     "plot_heatmap",
     "plot_portfolio_frontier",
     "plot_transition_map",

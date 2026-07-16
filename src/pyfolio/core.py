@@ -43,7 +43,8 @@ def compute_portfolio_metrics(
 def compute_assets_metrics(
     dailyreturn: pd.DataFrame, 
     anualperiod: int, 
-    riskfreerate: float
+    riskfreerate: float, 
+    pfolio_weights: list
 ) -> pd.DataFrame:
     """Compute risk metrics for each asset.
     """
@@ -53,9 +54,27 @@ def compute_assets_metrics(
     sharpe_ratios = (returns - riskfreerate) / risks # Annualized Sharpe ratio
     # DataFrame with assets metrics
     return pd.DataFrame({
+        'Weight': pfolio_weights,
         'Return': returns,
         'Risk': risks,
-        'SharpeRatio': sharpe_ratios
+        'SharpeRatio': sharpe_ratios,
+    })
+
+def compute_risk_descomposition(covfolioanual, pfolio_assets, pfolio_weights, riskfolio):
+    # Compute %risk by asset
+    weights = pd.Series(pfolio_weights, index = pfolio_assets)
+    # Compute Marginal Contribution to Risk (MCTR)
+    mctr = np.dot(covfolioanual, weights) / riskfolio
+    # Compute Absolute Contribution to Risk (ACTR)
+    actr = weights * mctr
+    # Compute percentage contribution of each action
+    riskdescomposition = actr / riskfolio
+    # Ratio RiskDescomposition/weight
+    ratiodescomposition = riskdescomposition / weights
+    return pd.DataFrame({
+        'Weight': pfolio_weights,
+        'RiskDesc' : riskdescomposition,
+        'RDW' : ratiodescomposition
     })
 
 def compute_daily_return(

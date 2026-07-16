@@ -204,15 +204,28 @@ def plot_transition_map(transition_map_df, out_path=None):
         plt.close()
     else:
         plt.show()
-       
+
+def plot_risk_descomposition(riskdescomposition):
+    sorted_metrics = riskdescomposition[['Weight','RiskDesc','RDW']].sort_values(by='RiskDesc',ascending=False)
+    formatted_metrics = sorted_metrics.copy()
+    formatted_metrics['Weight'] = formatted_metrics['Weight'].map('{:.2%}'.format)
+    formatted_metrics['RiskDesc'] = formatted_metrics['RiskDesc'].map('{:.2%}'.format)
+    formatted_metrics['RDW'] = formatted_metrics['RDW'].map('{:.2f}x'.format)
+    print(f"\033[33mRisk Descomposition:\n{formatted_metrics}\033[0m")
+
 def plot_assets_metrics(assets_metrics):
-    print(f"Return Ordered (%):\n {assets_metrics['Return'].sort_values(ascending=False).round(4)*100}")
-    print(f"Risks Ordered (%):\n {assets_metrics['Risk'].sort_values(ascending=True).round(4)*100}")
-    print(f"Sharpe Ratios Ordered:\n {assets_metrics['SharpeRatio'].sort_values(ascending=False).round(2)}")
+    sorted_metrics = assets_metrics[['Weight', 'SharpeRatio', 'Return', 'Risk']].sort_values(by='SharpeRatio', ascending=False)
+    formatted_metrics = sorted_metrics.copy()
+    formatted_metrics['Weight'] = formatted_metrics['Weight'].map('{:.2%}'.format)
+    formatted_metrics['SharpeRatio'] = formatted_metrics['SharpeRatio'].map('{:.2f}x'.format)
+    formatted_metrics['Return'] = formatted_metrics['Return'].map('{:.2%}'.format)
+    formatted_metrics['Risk'] = formatted_metrics['Risk'].map('{:.2%}'.format)
+    print(f"Sharpe Ratios Ordered:\n{formatted_metrics}")
 
 def plot_efficient_frontier_metrics(optimal_weights, optimal_portfolio, pfolio_assets):
-    print(f"Optimal Portfolio (Exact):\n{optimal_portfolio.round(2)}\n")
-    print(f"Optimal Weights (Exact, %):\n{pd.Series(optimal_weights, index=pfolio_assets).sort_values(ascending=False).round(4)*100}")
+    print(f"Optimal Portfolio Annualized Return: {optimal_portfolio['Return']*100:.2f}%")
+    print(f"Optimal Portfolio Annualized Risk: {optimal_portfolio['Risk']*100:.2f}%")
+    print(f"Optimal Portfolio Annualized Sharpe Ratio: {optimal_portfolio['SharpeRatio']:.2f}x")
 
 def plot_portfolio_pca(eigenvalues, eigenvectors, corrfolio):
     # Identifiy correlations extremes in portfolio
