@@ -4,13 +4,20 @@ from src.pyfolio import(
     load_data, 
     compute_daily_return,
     compute_correlation, 
+    compute_covariance, 
     save_corr, 
+    compute_risk_descomposition, 
+    compute_pca, 
     compute_assets_metrics, 
     compute_portfolio_metrics, 
     compute_efficient_frontier, 
-    plot_heatmap, 
+    plot_risk_descomposition, 
+    plot_heatmap,
     plot_portfolio_frontier, 
-    plot_transition_map,    
+    plot_transition_map, 
+    plot_portfolio_pca,  
+    plot_assets_metrics, 
+    plot_efficient_frontier_metrics, 
     RISK_FREE_RATE, 
     ANUAL_PERIOD, 
     ASSETS, 
@@ -34,45 +41,50 @@ def main(argv=None):
     parser = build_parser()
     args = parser.parse_args(argv)
     datafolio = load_data(args.input, ASSETS)
-    fin_load =time.perf_counter()
-    daily_return = compute_daily_return(datafolio, args.term, args.dailychange)
-    print(f"Data loaded in: {fin_load - ini_load:.4f} seconds.")
-    corr = compute_correlation(daily_return, method=args.method)
-    # Compute metrics assets by portfolio
-    assets_metrics = compute_assets_metrics(daily_return, ANUAL_PERIOD, RISK_FREE_RATE)
-
+    daily_return = compute_daily_return(datafolio, args.term, args.dailychange).dropna()
+    print(f"\033[34mData loaded in: {time.perf_counter() - ini_load:.4f} seconds.\033[0m")
+    corrfolio = compute_correlation(daily_return, method=args.method)
+    covfolio = compute_covariance(daily_return)
+    covfolioanual = covfolio * ANUAL_PERIOD
     ini_risk = time.perf_counter()
     pfolio_assets, pfolio_weights = ASSETS, WEIGHTS
     returnP, riskP, sharpeP = compute_portfolio_metrics(daily_return, ANUAL_PERIOD, RISK_FREE_RATE, pfolio_assets, pfolio_weights)
-    fin_risk = time.perf_counter()
-    print(f"Portfolio metrics computed in: {fin_risk - ini_risk:.4f} seconds.")
-    print(f"Portfolio Annualized Return: {returnP}")
-    print(f"Portfolio Annualized Risk: {riskP}")
-    print(f"Portfolio Annualized Sharpe Ratio: {sharpeP}")
-
+    print(f"Portfolio Annualized Return: {returnP*100:.2f}%")
+    print(f"Portfolio Annualized Risk: {riskP*100:.2f}%")
+    print(f"Portfolio Annualized Sharpe Ratio: {sharpeP:.2f}x")
+    # Compute metrics assets by portfolio
+    assets_metrics = compute_assets_metrics(daily_return, ANUAL_PERIOD, RISK_FREE_RATE, WEIGHTS)
+    plot_assets_metrics(assets_metrics)
+    # Compute pca metrics by portfolio
+    eigenvaluesfolio, eigenvectorsfolio = compute_pca(daily_return, ANUAL_PERIOD, ASSETS)
+    riskdescomposition = compute_risk_descomposition(covfolioanual, pfolio_assets, pfolio_weights, riskP)
+    plot_risk_descomposition(riskdescomposition)
+    print(f"\033[34mPortfolio metrics computed in: {time.perf_counter() - ini_risk:.4f} seconds.\033[0m")
+    
     ini_effrontier = time.perf_counter()
     optimal_weights, optimal_portfolio, efficient_frontier_points, transition_map_points = compute_efficient_frontier(daily_return, ANUAL_PERIOD, RISK_FREE_RATE, pfolio_assets)
-    fin_effrontier = time.perf_counter()
-    print(f"Efficient frontier computed in: {fin_effrontier - ini_effrontier:.4f} seconds.")
-    
+    optimalriskdescomposition = compute_risk_descomposition(covfolioanual, pfolio_assets, optimal_weights, optimal_portfolio['Risk'])
+    plot_efficient_frontier_metrics(optimal_weights, optimal_portfolio, pfolio_assets)
+    plot_risk_descomposition(optimalriskdescomposition)
+    print(f"\033[34mEfficient frontier computed in: {time.perf_counter() - ini_effrontier:.4f} seconds.\033[0m")
+        
     # Plot results
     if args.out:
-        save_corr(corr, args.out)
+        save_corr(corrfolio, args.out)
     if args.plot:
-        plot_heatmap(corr, args.plot)
+        plot_portfolio_pca(eigenvaluesfolio, eigenvectorsfolio, corrfolio)
+        plot_heatmap(corrfolio, args.plot)
         ini_plotportfolio = time.perf_counter()
         name_plot_portfolio = args.plotfolio + args.term + "_" + args.dailychange + "_frontier.png" if args.plotfolio else None
         plot_portfolio_frontier(optimal_weights, optimal_portfolio, efficient_frontier_points, pfolio_assets, assets_metrics, returnP, riskP, sharpeP, name_plot_portfolio)
-        fin_plotportfolio = time.perf_counter()
-        print(f"Efficient frontier plot computed in: {fin_plotportfolio - ini_plotportfolio:.4f} seconds.")
+        print(f"\033[34mEfficient frontier plot computed in: {time.perf_counter() - ini_plotportfolio:.4f} seconds.\033[0m")
         name_plot_transitionmap = args.plotfolio + args.term + "_" + args.dailychange + "_transition_map.png" if args.plotfolio else None
         ini_plottransition = time.perf_counter()
         plot_transition_map(transition_map_points, name_plot_transitionmap)
-        fin_plottransition = time.perf_counter()
-        print(f"Transition map plot computed in: {fin_plottransition - ini_plottransition:.4f} seconds.")
+        print(f"\033[34mTransition map plot computed in: {time.perf_counter() - ini_plottransition:.4f} seconds.\033[0m")
         
     else:
-        print(corr.to_string())
+        print(corrfolio.to_string())
     
 if __name__ == "__main__":
     main()

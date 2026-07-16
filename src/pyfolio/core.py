@@ -43,7 +43,8 @@ def compute_portfolio_metrics(
 def compute_assets_metrics(
     dailyreturn: pd.DataFrame, 
     anualperiod: int, 
-    riskfreerate: float
+    riskfreerate: float, 
+    pfolio_weights: list
 ) -> pd.DataFrame:
     """Compute risk metrics for each asset.
     """
@@ -51,14 +52,29 @@ def compute_assets_metrics(
     returns = dailyreturn.mean() * anualperiod # Annualized return
     risks = dailyreturn.std() * np.sqrt(anualperiod) # Annualized volatility
     sharpe_ratios = (returns - riskfreerate) / risks # Annualized Sharpe ratio
-    print(f"Return Ordered:\n {returns.sort_values(ascending=False)}")
-    print(f"Risks Ordered:\n {risks.sort_values(ascending=True)}")
-    print(f"Sharpe Ratios Ordered:\n {sharpe_ratios.sort_values(ascending=False)}")
     # DataFrame with assets metrics
     return pd.DataFrame({
+        'Weight': pfolio_weights,
         'Return': returns,
         'Risk': risks,
-        'SharpeRatio': sharpe_ratios
+        'SharpeRatio': sharpe_ratios,
+    })
+
+def compute_risk_descomposition(covfolioanual, pfolio_assets, pfolio_weights, riskfolio):
+    # Compute %risk by asset
+    weights = pd.Series(pfolio_weights, index = pfolio_assets)
+    # Compute Marginal Contribution to Risk (MCTR)
+    mctr = np.dot(covfolioanual, weights) / riskfolio
+    # Compute Absolute Contribution to Risk (ACTR)
+    actr = weights * mctr
+    # Compute percentage contribution of each action
+    riskdescomposition = actr / riskfolio
+    # Ratio RiskDescomposition/weight
+    ratiodescomposition = riskdescomposition / weights
+    return pd.DataFrame({
+        'Weight': pfolio_weights,
+        'RiskDesc' : riskdescomposition,
+        'RDW' : ratiodescomposition
     })
 
 def compute_daily_return(
@@ -78,7 +94,10 @@ def compute_daily_return(
         return (numeric/numeric.shift(-1)-1)
     else:
         raise ValueError("Invalid daily return method. Choose 'log' or 'simple'.")
- 
+
+def standarized_daily_return(dailyreturn: pd.DataFrame) -> pd.DataFrame:
+    return (dailyreturn - dailyreturn.mean()) / dailyreturn.std()
+
 def compute_correlation(
     dailyreturn: pd.DataFrame, 
     method="pearson"
@@ -110,7 +129,7 @@ def compute_return(dailyreturn: pd.DataFrame, weights: np.ndarray, anualperiod: 
     return np.sum(weights * dailyreturn.mean()) * anualperiod # Annualized return ratio
 
 def compute_risk(dailyreturn: pd.DataFrame, weights: np.ndarray, anualperiod: int) -> float:
-    return np.sqrt(weights.dot(dailyreturn.cov()).dot(weights)) * np.sqrt(anualperiod) # Annualized risk ratio
+    return np.sqrt(weights.dot(compute_covariance(dailyreturn)).dot(weights)) * np.sqrt(anualperiod) # Annualized risk ratio
 
 def compute_sharpe_ratio(returnP: float, riskP: float, riskfreerate: float) -> float:
     return (returnP - riskfreerate) / riskP # Annualized sharpe ratio
@@ -213,10 +232,6 @@ def compute_efficient_frontier(
         columns=pfolio_assets, 
         index=frontier_vols  # Set the risk/volatility as the index for easier plotting
     )
-
-    # --- CONSOLE REPORTING ---
-    print(f"Optimal Portfolio (Exact):\n{optimal_portfolio}\n")
-    print(f"Optimal Weights (Exact):\n{pd.Series(optimal_weights, index=pfolio_assets).sort_values(ascending=False)}")
     return optimal_weights, optimal_portfolio, efficient_frontier_points, transition_map_points 
 
 def compute_montecarlo_simulation(
@@ -258,9 +273,6 @@ def compute_montecarlo_simulation(
     optimal_idx = simulated_portfolios['SharpeRatio'].idxmax()
     optimal_portfolio = simulated_portfolios.loc[optimal_idx]
     optimal_weights = weights_record[:, optimal_idx]
-
-    print(f"Optimal Portfolio:\n{optimal_portfolio}")
-    print(f"Optimal Weights:\n{pd.Series(optimal_weights, index=pfolio_assets).sort_values(ascending=False)}")
     return optimal_weights, optimal_portfolio, simulated_portfolios
 
 def negate_sharpe(
@@ -287,8 +299,22 @@ def compute_pca(
     pfolio_assets: list
 ) -> tuple:
     """Compute PCA for dimensionality reduction."""
-    #clean the data by dropping rows with NaN values for the selected assets
-    dr_filtered = dailyreturn[pfolio_assets].dropna()
-
-    pass  # Placeholder for PCA implementation
+    #compute covariance matrix and annualize it
+    #cov_matrix_annualized = compute_covariance(dailyreturn) * anualperiod
+    #corr_matrix = compute_correlation(dailyreturn)
+    dailyreturnstandarized = standarized_daily_return(dailyreturn)
+    #only if we consider 3 vector risk: (a) market/beta, (b) sectorial y (c) money rotation
+    #pca = PCA(n_components=min(3, len(pfolio_assets)))
+    pca = PCA(n_components=len(pfolio_assets))
+    #compute eigenvalues and eigenvectors
+    pca.fit(dailyreturnstandarized)
+    #eigenvalues (type: np.ndarray), variance explained by each component:
+    eigenvalues = pca.explained_variance_ratio_
+    #eigenvector (type: pd.DataFrame), load factors, relation between each asset and component
+    eigenvectors = pd.DataFrame(
+        pca.components_.T, 
+        columns=[f'PC{i+1}' for i in range(pca.n_components_)], 
+        index=pfolio_assets
+    )
+    return eigenvalues, eigenvectors
 

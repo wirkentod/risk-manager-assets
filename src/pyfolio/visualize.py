@@ -1,8 +1,10 @@
 """Visualization helpers for correlation matrices."""
+from adjustText import adjust_text
 from pathlib import Path
-import matplotlib.pyplot as plt
 from matplotlib.ticker import FuncFormatter
+import matplotlib.pyplot as plt
 import seaborn as sns
+import pandas as pd
 import numpy as np
 
 def plot_heatmap(corr, out_path=None, figsize=(10, 8), cmap="vlag"):
@@ -51,10 +53,9 @@ def plot_portfolio_frontier(optimal_weights, optimal_portfolio, simulated_portfo
     # Annotate asset tickers for each individual asset
     # Optional: If adjustText library is installed, use it to automatically prevent overlaps.
     try:
-        from adjustText import adjust_text
         texts = []
         for ticker, asset in assets_metrics.iterrows():
-            texts.append(ax.text(asset['Risk'], asset['Return'], ticker, fontsize=9, color='black', weight='bold', zorder=6))
+            texts.append(ax.text(asset['Risk'], asset['Return'], ticker, fontsize=9, color='black', weight='bold', zorder=6, ha='center', va='bottom'))
         adjust_text(texts, arrowprops=dict(arrowstyle="->", color='gray', lw=0.5))
     except ImportError:
         # Fallback if adjustText is not available
@@ -203,3 +204,66 @@ def plot_transition_map(transition_map_df, out_path=None):
         plt.close()
     else:
         plt.show()
+
+def plot_risk_descomposition(riskdescomposition):
+    sorted_metrics = riskdescomposition[['Weight','RiskDesc','RDW']].sort_values(by='RiskDesc',ascending=False)
+    formatted_metrics = sorted_metrics.copy()
+    formatted_metrics['Weight'] = formatted_metrics['Weight'].map('{:.2%}'.format)
+    formatted_metrics['RiskDesc'] = formatted_metrics['RiskDesc'].map('{:.2%}'.format)
+    formatted_metrics['RDW'] = formatted_metrics['RDW'].map('{:.2f}x'.format)
+    print(f"\033[33mRisk Descomposition:\n{formatted_metrics}\033[0m")
+
+def plot_assets_metrics(assets_metrics):
+    sorted_metrics = assets_metrics[['Weight', 'SharpeRatio', 'Return', 'Risk']].sort_values(by='SharpeRatio', ascending=False)
+    formatted_metrics = sorted_metrics.copy()
+    formatted_metrics['Weight'] = formatted_metrics['Weight'].map('{:.2%}'.format)
+    formatted_metrics['SharpeRatio'] = formatted_metrics['SharpeRatio'].map('{:.2f}x'.format)
+    formatted_metrics['Return'] = formatted_metrics['Return'].map('{:.2%}'.format)
+    formatted_metrics['Risk'] = formatted_metrics['Risk'].map('{:.2%}'.format)
+    print(f"Sharpe Ratios Ordered:\n{formatted_metrics}")
+
+def plot_efficient_frontier_metrics(optimal_weights, optimal_portfolio, pfolio_assets):
+    print(f"Optimal Portfolio Annualized Return: {optimal_portfolio['Return']*100:.2f}%")
+    print(f"Optimal Portfolio Annualized Risk: {optimal_portfolio['Risk']*100:.2f}%")
+    print(f"Optimal Portfolio Annualized Sharpe Ratio: {optimal_portfolio['SharpeRatio']:.2f}x")
+
+def plot_portfolio_pca(eigenvalues, eigenvectors, corrfolio):
+    # Identifiy correlations extremes in portfolio
+    top_extremes = 4
+    upper_corr = corrfolio.where(np.triu(np.ones(corrfolio.shape), k=1).astype(bool))
+    highest_corr = upper_corr.stack().nlargest(top_extremes)
+    lowest_corr = upper_corr.stack().nsmallest(top_extremes)
+    print("\nTop Systemic Redundancies (Highest Correlation):")
+    for (a1, a2), val in highest_corr.items():
+        print(f"  • {a1} ↔ {a2}: {val:.2f} (Potential concentration risk)")
+        
+    print("\nTop Diversification Drivers (Lowest/Negative Correlation):")
+    for (a1, a2), val in lowest_corr.items():
+        print(f"  • {a1} ↔ {a2}: {val:.2f} (Effective tail-risk offset)")   
+
+    print("\nReporte de Estructura de Varianza Explicada")
+    print("PRINCIPAL COMPONENT ANALYSIS (Latent Risk Factors Spectrum)")
+    print("-" * 80)
+    cumulative_var = 0
+    for i, var in enumerate(eigenvalues):
+        cumulative_var += var
+        print(f"\033[32mPC{i+1} Eigenvalue Explanation: {var*100:.2f}% of total, accum: {cumulative_var*100:.2f}% portfolio variance.\033[0m")
+    print("\n" + "-" * 80)
+    print("FACTOR LOADINGS MATRIX (Asset Sensitivity to Latent Factors)")
+    print("-" * 80)
+    # Formatear la matriz de cargas para identificar rápidamente dominancias
+    print(eigenvectors.round(4).to_string())
+
+    #Automatizar PCx
+    umbral = 0.80 #65% cumulate eigenvalues
+    eigenvalsum = np.cumsum(eigenvalues)
+    num_pcx = np.sum(eigenvalsum <= umbral)
+    eigenvectorsround = eigenvectors.round(4)
+    for j in range(1, num_pcx + 1):
+        print(f"\n{'-' * 80}")
+        id_max = eigenvectorsround[f"PC{j}"].idxmax()
+        id_min = eigenvectorsround[f"PC{j}"].idxmin()
+        val_max = eigenvectorsround[f"PC{j}"][id_max]
+        val_min = eigenvectorsround[f"PC{j}"][id_min]
+        print(f"\033[31m• Factor PC{j}: ({id_max}, {val_max}) and ({id_min}, {val_min}).\033[0m")
+        print(eigenvectorsround[f"PC{j}"].sort_values(ascending=False))

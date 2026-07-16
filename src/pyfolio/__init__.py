@@ -8,8 +8,11 @@ from .core import (
     load_data,
     compute_daily_return,
     compute_correlation,
+    compute_covariance,
     save_corr,
     # metrics
+    compute_risk_descomposition, 
+    compute_pca,
     compute_assets_metrics,
     compute_portfolio_metrics,
     compute_efficient_frontier,
@@ -17,9 +20,13 @@ from .core import (
 )
 from .visualize import (
     # visualization functions
+    plot_risk_descomposition, 
     plot_heatmap, 
     plot_portfolio_frontier,
-    plot_transition_map
+    plot_transition_map,
+    plot_portfolio_pca,
+    plot_assets_metrics,
+    plot_efficient_frontier_metrics
 )
 
 # =====================================================================
@@ -41,16 +48,23 @@ __all__ = [
     "load_data", 
     "compute_daily_return", 
     "compute_correlation",
+    "compute_covariance",
     "save_corr",
     # compute metrics
+    "compute_risk_descomposition",
+    "compute_pca",
     "compute_assets_metrics",
     "compute_portfolio_metrics",
     "compute_efficient_frontier",
     "compute_montecarlo_simulation",
     # visualization functions
+    "plot_risk_descomposition", 
     "plot_heatmap",
     "plot_portfolio_frontier",
     "plot_transition_map",
+    "plot_portfolio_pca",
+    "plot_assets_metrics",
+    "plot_efficient_frontier_metrics", 
     # global variables
     "RISK_FREE_RATE",
     "ANUAL_PERIOD",
