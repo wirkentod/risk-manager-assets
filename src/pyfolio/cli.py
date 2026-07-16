@@ -40,7 +40,7 @@ def main(argv=None):
     datafolio = load_data(args.input, ASSETS)
     daily_return = compute_daily_return(datafolio, args.term, args.dailychange).dropna()
     print(f"\033[34mData loaded in: {time.perf_counter() - ini_load:.4f} seconds.\033[0m")
-    corr = compute_correlation(daily_return, method=args.method)
+    corrfolio = compute_correlation(daily_return, method=args.method)
     # Compute metrics assets by portfolio
     assets_metrics = compute_assets_metrics(daily_return, ANUAL_PERIOD, RISK_FREE_RATE)
     plot_assets_metrics(assets_metrics)
@@ -62,10 +62,10 @@ def main(argv=None):
         
     # Plot results
     if args.out:
-        save_corr(corr, args.out)
+        save_corr(corrfolio, args.out)
     if args.plot:
-        plot_portfolio_pca(eigenvaluesfolio, eigenvectorsfolio)
-        plot_heatmap(corr, args.plot)
+        plot_portfolio_pca(eigenvaluesfolio, eigenvectorsfolio, corrfolio)
+        plot_heatmap(corrfolio, args.plot)
         ini_plotportfolio = time.perf_counter()
         name_plot_portfolio = args.plotfolio + args.term + "_" + args.dailychange + "_frontier.png" if args.plotfolio else None
         plot_portfolio_frontier(optimal_weights, optimal_portfolio, efficient_frontier_points, pfolio_assets, assets_metrics, returnP, riskP, sharpeP, name_plot_portfolio)
@@ -76,7 +76,7 @@ def main(argv=None):
         print(f"\033[34mTransition map plot computed in: {time.perf_counter() - ini_plottransition:.4f} seconds.\033[0m")
         
     else:
-        print(corr.to_string())
+        print(corrfolio.to_string())
     
 if __name__ == "__main__":
     main()

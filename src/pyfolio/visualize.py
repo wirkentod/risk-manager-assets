@@ -214,27 +214,43 @@ def plot_efficient_frontier_metrics(optimal_weights, optimal_portfolio, pfolio_a
     print(f"Optimal Portfolio (Exact):\n{optimal_portfolio.round(2)}\n")
     print(f"Optimal Weights (Exact, %):\n{pd.Series(optimal_weights, index=pfolio_assets).sort_values(ascending=False).round(4)*100}")
 
-def plot_portfolio_pca(eigenvalues, eigenvectors):
-    print("Reporte de Estructura de Varianza Explicada")
+def plot_portfolio_pca(eigenvalues, eigenvectors, corrfolio):
+    # Identifiy correlations extremes in portfolio
+    top_extremes = 4
+    upper_corr = corrfolio.where(np.triu(np.ones(corrfolio.shape), k=1).astype(bool))
+    highest_corr = upper_corr.stack().nlargest(top_extremes)
+    lowest_corr = upper_corr.stack().nsmallest(top_extremes)
+    print("\nTop Systemic Redundancies (Highest Correlation):")
+    for (a1, a2), val in highest_corr.items():
+        print(f"  • {a1} ↔ {a2}: {val:.2f} (Potential concentration risk)")
+        
+    print("\nTop Diversification Drivers (Lowest/Negative Correlation):")
+    for (a1, a2), val in lowest_corr.items():
+        print(f"  • {a1} ↔ {a2}: {val:.2f} (Effective tail-risk offset)")   
+
+    print("\nReporte de Estructura de Varianza Explicada")
     print("PRINCIPAL COMPONENT ANALYSIS (Latent Risk Factors Spectrum)")
     print("-" * 80)
     cumulative_var = 0
     for i, var in enumerate(eigenvalues):
         cumulative_var += var
-        print(f"PC{i+1} Eigenvalue Explanation: {var*100:.2f}% of total, accum: {cumulative_var*100:.2f}% portfolio variance.")
+        print(f"\033[32mPC{i+1} Eigenvalue Explanation: {var*100:.2f}% of total, accum: {cumulative_var*100:.2f}% portfolio variance.\033[0m")
     print("\n" + "-" * 80)
     print("FACTOR LOADINGS MATRIX (Asset Sensitivity to Latent Factors)")
     print("-" * 80)
     # Formatear la matriz de cargas para identificar rápidamente dominancias
     print(eigenvectors.round(4).to_string())
-    print("\n" + "-" * 80)
-    print("Market Factor PC1")
-    print(eigenvectors.round(4)["PC1"].sort_values(ascending=False))
-    
-    print("\n" + "-" * 80)
-    print("Factor PC2")
-    print(eigenvectors.round(4)["PC2"].sort_values(ascending=False))
 
-    print("\n" + "-" * 80)
-    print("Factor PC3")
-    print(eigenvectors.round(4)["PC3"].sort_values(ascending=False))
+    #Automatizar PCx
+    umbral = 0.80 #65% cumulate eigenvalues
+    eigenvalsum = np.cumsum(eigenvalues)
+    num_pcx = np.sum(eigenvalsum <= umbral)
+    eigenvectorsround = eigenvectors.round(4)
+    for j in range(1, num_pcx + 1):
+        print(f"\n{'-' * 80}")
+        id_max = eigenvectorsround[f"PC{j}"].idxmax()
+        id_min = eigenvectorsround[f"PC{j}"].idxmin()
+        val_max = eigenvectorsround[f"PC{j}"][id_max]
+        val_min = eigenvectorsround[f"PC{j}"][id_min]
+        print(f"\033[31m• Factor PC{j}: ({id_max}, {val_max}) and ({id_min}, {val_min}).\033[0m")
+        print(eigenvectorsround[f"PC{j}"].sort_values(ascending=False))
