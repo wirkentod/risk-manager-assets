@@ -222,12 +222,14 @@ def plot_assets_metrics(assets_metrics):
     formatted_metrics['Risk'] = formatted_metrics['Risk'].map('{:.2%}'.format)
     formatted_metrics['VaR'] = formatted_metrics['VaR'].map('{:.2%}'.format)
     formatted_metrics['CVaR'] = formatted_metrics['CVaR'].map('{:.2%}'.format)
-    print(f"\033[33mSharpe Ratios Ordered:\n{formatted_metrics}\033[0m")
+    print(f"\033[35mAsset metrics (Sharpe Ratio Ordered):\n{formatted_metrics}\033[0m")
 
 def plot_efficient_frontier_metrics(optimal_weights, optimal_portfolio, pfolio_assets):
     print(f"Optimal Portfolio Annualized Return: {optimal_portfolio['Return']*100:.2f}%")
     print(f"Optimal Portfolio Annualized Risk: {optimal_portfolio['Risk']*100:.2f}%")
     print(f"Optimal Portfolio Annualized Sharpe Ratio: {optimal_portfolio['SharpeRatio']:.2f}x")
+    print(f"Optimal Portfolio Annualized VaR: {optimal_portfolio['VaR']*100:.2f}%")
+    print(f"Optimal Portfolio Annualized CVaR: {optimal_portfolio['CVaR']*100:.2f}%")
 
 def plot_portfolio_pca(eigenvalues, eigenvectors, corrfolio):
     # Identifiy correlations extremes in portfolio

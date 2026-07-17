@@ -32,13 +32,14 @@ def compute_portfolio_metrics(
     anualperiod: int, 
     riskfreerate: float, 
     pfolio_assets: list, 
-    pfolio_weights: list
+    pfolio_weights: list,
+    confidencelevel: float
 ) -> tuple:
     """Compute risk metrics for a portfolio.
     """
     # Read weights from a file or define them here
     weight = pd.Series(pfolio_weights, index = pfolio_assets)
-    return portfolio_stats(weight, dailyreturn, anualperiod, riskfreerate) #returnP, riskP, sharpeP
+    return portfolio_stats(weight, dailyreturn, anualperiod, riskfreerate, confidencelevel) #returnP, riskP, sharpeP, varP, cvarP
 
 def compute_assets_metrics(
     dailyreturn: pd.DataFrame, 
@@ -54,15 +55,15 @@ def compute_assets_metrics(
     risks = dailyreturn.std() * np.sqrt(anualperiod) # Annualized volatility
     sharpe_ratios = (returns - riskfreerate) / risks # Annualized Sharpe ratio
     # Compute VaR and CVaR historic for each asset
-    varp, cvarp = compute_assets_var_historic_method(dailyreturn, anualperiod, confidence_level)
+    assets_var, assets_cvar = compute_assets_var_historic_method(dailyreturn, anualperiod, confidence_level)
     # DataFrame with assets metrics
     return pd.DataFrame({
         'Weight': pfolio_weights,
         'Return': returns,
         'Risk': risks,
         'SharpeRatio': sharpe_ratios,
-        'VaR': varp,
-        'CVaR': cvarp
+        'VaR': assets_var,
+        'CVaR': assets_cvar
     })
 
 def compute_assets_var_historic_method(
@@ -76,11 +77,11 @@ def compute_assets_var_historic_method(
     assets_cvar = {}
     for asset in dailyreturn.columns:
         # Historic VaR: lost percentil
-        var_asset = -np.percentile(dailyreturn[asset], alpha * 100)
-        assets_var[asset] = var_asset * np.sqrt(anualperiod) # Annualized VaR
+        asset_var = -np.percentile(dailyreturn[asset], alpha * 100)
         # Historic CVaR mean return below VaR
-        cvar_asset = -dailyreturn[asset][dailyreturn[asset] <= -var_asset].mean()
-        assets_cvar[asset] = cvar_asset * np.sqrt(anualperiod) # Annualized CVaR
+        asset_cvar = -dailyreturn[asset][dailyreturn[asset] <= -asset_var].mean()
+        assets_var[asset] = asset_var * np.sqrt(anualperiod) # Annualized VaR
+        assets_cvar[asset] = asset_cvar * np.sqrt(anualperiod) # Annualized CVaR
     return pd.Series(assets_var), pd.Series(assets_cvar)
 
 def compute_risk_descomposition(covfolioanual, pfolio_assets, pfolio_weights, riskfolio):
@@ -140,13 +141,15 @@ def portfolio_stats(
     weights: np.ndarray, 
     dailyreturn: pd.DataFrame, 
     anualperiod: int, 
-    riskfreerate: float
+    riskfreerate: float, 
+    confidencelevel: float
 ) -> tuple:
     """Computes exact portfolio statistics using external helpers."""
     p_return = compute_return(dailyreturn, weights, anualperiod)
     p_risk = compute_risk(dailyreturn, weights, anualperiod)
     p_sharpe = compute_sharpe_ratio(p_return, p_risk, riskfreerate)
-    return p_return, p_risk, p_sharpe
+    p_var, p_cvar = compute_var_historic_method(dailyreturn,anualperiod,confidencelevel,weights)
+    return p_return, p_risk, p_sharpe, p_var, p_cvar
 
 def compute_return(dailyreturn: pd.DataFrame, weights: np.ndarray, anualperiod: int) -> float:
     return np.sum(weights * dailyreturn.mean()) * anualperiod # Annualized return ratio
@@ -156,6 +159,21 @@ def compute_risk(dailyreturn: pd.DataFrame, weights: np.ndarray, anualperiod: in
 
 def compute_sharpe_ratio(returnP: float, riskP: float, riskfreerate: float) -> float:
     return (returnP - riskfreerate) / riskP # Annualized sharpe ratio
+
+def compute_var_historic_method(
+    dailyreturn: pd.DataFrame, 
+    anualperiod: int, 
+    confidencelevel: float,
+    weights: np.ndarray 
+) -> tuple:
+    # Compute VaR and CVaR historic for portfolio
+    alpha = 1 - confidencelevel
+    returnfolio = dailyreturn.dot(weights)
+    varfolio = -np.percentile(returnfolio, alpha * 100)
+    cvarfolio = -returnfolio[returnfolio <= -varfolio].mean()
+    varfolio = varfolio *  np.sqrt(anualperiod) # Annualized VaR ratio
+    cvarfolio = cvarfolio * np.sqrt(anualperiod) # Annualized CVaR ratio
+    return varfolio, cvarfolio
 
 def save_corr(df_corr: pd.DataFrame, out_path: str):
     """Save correlation matrix to a CSV file."""
@@ -167,7 +185,8 @@ def compute_efficient_frontier(
     dailyreturn: pd.DataFrame, 
     anualperiod: int, 
     riskfreerate: float, 
-    pfolio_assets: list
+    pfolio_assets: list,
+    confidencelevel: float
 ) -> tuple:
     """
     Mathematically computes optimal portfolio weights and the efficient frontier curve
@@ -176,7 +195,7 @@ def compute_efficient_frontier(
     num_assets = len(pfolio_assets)
     
     # Tuples containing external variables needed by the functions
-    optimization_args = (dailyreturn, anualperiod, riskfreerate)
+    optimization_args = (dailyreturn, anualperiod, riskfreerate, confidencelevel)
 
     # --- OPTIMIZER CONSTRAINTS AND BOUNDS ---
     sum_weights_constraint = {'type': 'eq', 'fun': lambda w: np.sum(w) - 1.0}
@@ -196,10 +215,10 @@ def compute_efficient_frontier(
     )
     
     optimal_weights = opt_sharpe['x']
-    opt_ret, opt_vol, opt_sh = portfolio_stats(optimal_weights, *optimization_args)
+    opt_ret, opt_vol, opt_sh, opt_var, opt_cvar = portfolio_stats(optimal_weights, *optimization_args)
     
     optimal_portfolio = pd.Series({
-        'Return': opt_ret, 'Risk': opt_vol, 'SharpeRatio': opt_sh
+        'Return': opt_ret, 'Risk': opt_vol, 'SharpeRatio': opt_sh, 'VaR': opt_var, 'CVaR': opt_cvar
     })
 
     # =========================================================================
@@ -302,19 +321,21 @@ def negate_sharpe(
     weights: np.ndarray, 
     dailyreturn: pd.DataFrame, 
     anualperiod: int, 
-    riskfreerate: float
+    riskfreerate: float,
+    confidencelevel: float
 ) -> float:
     """Objective function to maximize Sharpe Ratio."""
-    return -portfolio_stats(weights, dailyreturn, anualperiod, riskfreerate)[2]
+    return -portfolio_stats(weights, dailyreturn, anualperiod, riskfreerate, confidencelevel)[2]
 
 def minimize_volatility(
     weights: np.ndarray, 
     dailyreturn: pd.DataFrame, 
     anualperiod: int, 
-    riskfreerate: float
+    riskfreerate: float,
+    confidencelevel: float
 ) -> float:
     """Objective function to minimize Volatility."""
-    return portfolio_stats(weights, dailyreturn, anualperiod, riskfreerate)[1]
+    return portfolio_stats(weights, dailyreturn, anualperiod, riskfreerate, confidencelevel)[1]
 
 def compute_pca(
     dailyreturn: pd.DataFrame, 

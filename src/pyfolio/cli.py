@@ -49,10 +49,12 @@ def main(argv=None):
     covfolioanual = covfolio * ANUAL_PERIOD
     ini_risk = time.perf_counter()
     pfolio_assets, pfolio_weights = ASSETS, WEIGHTS
-    returnP, riskP, sharpeP = compute_portfolio_metrics(daily_return, ANUAL_PERIOD, RISK_FREE_RATE, pfolio_assets, pfolio_weights)
+    returnP, riskP, sharpeP, varP, cvarP = compute_portfolio_metrics(daily_return, ANUAL_PERIOD, RISK_FREE_RATE, pfolio_assets, pfolio_weights, CONFIDENCE_LEVEL)
     print(f"Portfolio Annualized Return: {returnP*100:.2f}%")
     print(f"Portfolio Annualized Risk: {riskP*100:.2f}%")
     print(f"Portfolio Annualized Sharpe Ratio: {sharpeP:.2f}x")
+    print(f"Portfolio Annualized VaR: {varP*100:.2f}%")
+    print(f"Portfolio Annualized CVaR: {cvarP*100:.2f}%")
     # Compute metrics assets by portfolio
     assets_metrics = compute_assets_metrics(daily_return, ANUAL_PERIOD, RISK_FREE_RATE, WEIGHTS, CONFIDENCE_LEVEL)
     plot_assets_metrics(assets_metrics)
@@ -61,9 +63,8 @@ def main(argv=None):
     riskdescomposition = compute_risk_descomposition(covfolioanual, pfolio_assets, pfolio_weights, riskP)
     plot_risk_descomposition(riskdescomposition)
     print(f"\033[34mPortfolio metrics computed in: {time.perf_counter() - ini_risk:.4f} seconds.\033[0m")
-    
     ini_effrontier = time.perf_counter()
-    optimal_weights, optimal_portfolio, efficient_frontier_points, transition_map_points = compute_efficient_frontier(daily_return, ANUAL_PERIOD, RISK_FREE_RATE, pfolio_assets)
+    optimal_weights, optimal_portfolio, efficient_frontier_points, transition_map_points = compute_efficient_frontier(daily_return, ANUAL_PERIOD, RISK_FREE_RATE, pfolio_assets, CONFIDENCE_LEVEL)
     optimalriskdescomposition = compute_risk_descomposition(covfolioanual, pfolio_assets, optimal_weights, optimal_portfolio['Risk'])
     plot_efficient_frontier_metrics(optimal_weights, optimal_portfolio, pfolio_assets)
     plot_risk_descomposition(optimalriskdescomposition)
