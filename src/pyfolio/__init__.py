@@ -26,7 +26,7 @@ from .visualize import (
     plot_transition_map,
     plot_portfolio_pca,
     plot_assets_metrics,
-    plot_efficient_frontier_metrics
+    plot_portfolio_metrics
 )
 
 # =====================================================================
@@ -65,7 +65,7 @@ __all__ = [
     "plot_transition_map",
     "plot_portfolio_pca",
     "plot_assets_metrics",
-    "plot_efficient_frontier_metrics", 
+    "plot_portfolio_metrics", 
     # global variables
     "RISK_FREE_RATE",
     "ANUAL_PERIOD",

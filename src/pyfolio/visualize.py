@@ -228,12 +228,12 @@ def plot_assets_metrics(assets_metrics):
     formatted_metrics['CVaRMC'] = formatted_metrics['CVaRMC'].map('{:.2%}'.format)
     print(f"\033[35mAsset metrics (Sharpe Ratio Ordered):\n{formatted_metrics}\033[0m")
 
-def plot_efficient_frontier_metrics(optimal_weights, optimal_portfolio, pfolio_assets):
-    print(f"Optimal Portfolio Annualized Return: {optimal_portfolio['Return']*100:.2f}%")
-    print(f"Optimal Portfolio Annualized Risk: {optimal_portfolio['Risk']*100:.2f}%")
-    print(f"Optimal Portfolio Annualized Sharpe Ratio: {optimal_portfolio['SharpeRatio']:.2f}x")
-    print(f"Optimal Portfolio Annualized VaR: {optimal_portfolio['VaR']*100:.2f}%")
-    print(f"Optimal Portfolio Annualized CVaR: {optimal_portfolio['CVaR']*100:.2f}%")
+def plot_portfolio_metrics(portfolio:dict, portfolioname: str):
+    for metric, value in portfolio.items():
+        if "ratio" in metric.lower():
+            print(f"{portfolioname} Portfolio Annualized {metric}: {value:.2f}x")
+        else:
+            print(f"{portfolioname} Portfolio Annualized {metric}: {value * 100:.2f}%")
 
 def plot_portfolio_pca(eigenvalues, eigenvectors, corrfolio):
     # Identifiy correlations extremes in portfolio
@@ -263,7 +263,7 @@ def plot_portfolio_pca(eigenvalues, eigenvectors, corrfolio):
     print(eigenvectors.round(4).to_string())
 
     #Automatizar PCx
-    umbral = 0.80 #65% cumulate eigenvalues
+    umbral = 0.50 #50% cumulate eigenvalues
     eigenvalsum = np.cumsum(eigenvalues)
     num_pcx = np.sum(eigenvalsum <= umbral)
     eigenvectorsround = eigenvectors.round(4)
