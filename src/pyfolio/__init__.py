@@ -37,6 +37,7 @@ from .config.lector import (
     ANUAL_PERIOD, 
     ASSETS, 
     WEIGHTS, 
+    CONFIDENCE_LEVEL, 
     NUM_SIMULATIONS
 )
 
@@ -70,5 +71,6 @@ __all__ = [
     "ANUAL_PERIOD",
     "ASSETS",
     "WEIGHTS",
+    "CONFIDENCE_LEVEL",
     "NUM_SIMULATIONS",
 ]

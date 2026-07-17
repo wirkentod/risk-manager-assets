@@ -44,7 +44,8 @@ def compute_assets_metrics(
     dailyreturn: pd.DataFrame, 
     anualperiod: int, 
     riskfreerate: float, 
-    pfolio_weights: list
+    pfolio_weights: list,
+    confidence_level: float
 ) -> pd.DataFrame:
     """Compute risk metrics for each asset.
     """
@@ -52,13 +53,35 @@ def compute_assets_metrics(
     returns = dailyreturn.mean() * anualperiod # Annualized return
     risks = dailyreturn.std() * np.sqrt(anualperiod) # Annualized volatility
     sharpe_ratios = (returns - riskfreerate) / risks # Annualized Sharpe ratio
+    # Compute VaR and CVaR historic for each asset
+    varp, cvarp = compute_assets_var_historic_method(dailyreturn, anualperiod, confidence_level)
     # DataFrame with assets metrics
     return pd.DataFrame({
         'Weight': pfolio_weights,
         'Return': returns,
         'Risk': risks,
         'SharpeRatio': sharpe_ratios,
+        'VaR': varp,
+        'CVaR': cvarp
     })
+
+def compute_assets_var_historic_method(
+    dailyreturn: pd.DataFrame, 
+    anualperiod: int, 
+    confidencelevel: float
+) -> tuple:
+    # Compute VaR and CVaR historic for each asset
+    alpha = 1 - confidencelevel
+    assets_var = {}
+    assets_cvar = {}
+    for asset in dailyreturn.columns:
+        # Historic VaR: lost percentil
+        var_asset = -np.percentile(dailyreturn[asset], alpha * 100)
+        assets_var[asset] = var_asset * np.sqrt(anualperiod) # Annualized VaR
+        # Historic CVaR mean return below VaR
+        cvar_asset = -dailyreturn[asset][dailyreturn[asset] <= -var_asset].mean()
+        assets_cvar[asset] = cvar_asset * np.sqrt(anualperiod) # Annualized CVaR
+    return pd.Series(assets_var), pd.Series(assets_cvar)
 
 def compute_risk_descomposition(covfolioanual, pfolio_assets, pfolio_weights, riskfolio):
     # Compute %risk by asset

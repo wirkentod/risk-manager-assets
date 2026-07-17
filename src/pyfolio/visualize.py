@@ -214,13 +214,15 @@ def plot_risk_descomposition(riskdescomposition):
     print(f"\033[33mRisk Descomposition:\n{formatted_metrics}\033[0m")
 
 def plot_assets_metrics(assets_metrics):
-    sorted_metrics = assets_metrics[['Weight', 'SharpeRatio', 'Return', 'Risk']].sort_values(by='SharpeRatio', ascending=False)
+    sorted_metrics = assets_metrics[['Weight', 'SharpeRatio', 'Return', 'Risk', 'VaR', 'CVaR']].sort_values(by='SharpeRatio', ascending=False)
     formatted_metrics = sorted_metrics.copy()
     formatted_metrics['Weight'] = formatted_metrics['Weight'].map('{:.2%}'.format)
     formatted_metrics['SharpeRatio'] = formatted_metrics['SharpeRatio'].map('{:.2f}x'.format)
     formatted_metrics['Return'] = formatted_metrics['Return'].map('{:.2%}'.format)
     formatted_metrics['Risk'] = formatted_metrics['Risk'].map('{:.2%}'.format)
-    print(f"Sharpe Ratios Ordered:\n{formatted_metrics}")
+    formatted_metrics['VaR'] = formatted_metrics['VaR'].map('{:.2%}'.format)
+    formatted_metrics['CVaR'] = formatted_metrics['CVaR'].map('{:.2%}'.format)
+    print(f"\033[33mSharpe Ratios Ordered:\n{formatted_metrics}\033[0m")
 
 def plot_efficient_frontier_metrics(optimal_weights, optimal_portfolio, pfolio_assets):
     print(f"Optimal Portfolio Annualized Return: {optimal_portfolio['Return']*100:.2f}%")
