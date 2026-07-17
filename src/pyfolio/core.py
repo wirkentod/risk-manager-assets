@@ -4,6 +4,7 @@ from sklearn.decomposition import PCA
 import pandas as pd
 import numpy as np
 import scipy.optimize as sco
+import scipy.stats as stats
 
 # -----------------------------------------------------------------------------------
 # Author: Christian Quispe
@@ -55,7 +56,7 @@ def compute_assets_metrics(
     risks = dailyreturn.std() * np.sqrt(anualperiod) # Annualized volatility
     sharpe_ratios = (returns - riskfreerate) / risks # Annualized Sharpe ratio
     # Compute VaR and CVaR historic for each asset
-    assets_var, assets_cvar = compute_assets_var_historic_method(dailyreturn, anualperiod, confidence_level)
+    assets_var, assets_cvar, assets_param_var, assets_param_cvar  = compute_assets_var_historic_method(dailyreturn, anualperiod, confidence_level)
     # DataFrame with assets metrics
     return pd.DataFrame({
         'Weight': pfolio_weights,
@@ -63,7 +64,9 @@ def compute_assets_metrics(
         'Risk': risks,
         'SharpeRatio': sharpe_ratios,
         'VaR': assets_var,
-        'CVaR': assets_cvar
+        'CVaR': assets_cvar,
+        'VaRParam': assets_param_var,
+        'CVaRParam': assets_param_cvar
     })
 
 def compute_assets_var_historic_method(
@@ -75,14 +78,29 @@ def compute_assets_var_historic_method(
     alpha = 1 - confidencelevel
     assets_var = {}
     assets_cvar = {}
+    # Compute parameter to VaR and CVaR Parametic method
+    z_score = stats.norm.ppf(confidencelevel)
+    sqrt_time = np.sqrt(anualperiod)
+    assets_param_var = {}
+    assets_param_cvar = {}
     for asset in dailyreturn.columns:
+        # Daily parameters baseline by asset
+        daily_mean = dailyreturn[asset].mean()
+        daily_std = dailyreturn[asset].std()
         # Historic VaR: lost percentil
         asset_var = -np.percentile(dailyreturn[asset], alpha * 100)
         # Historic CVaR mean return below VaR
         asset_cvar = -dailyreturn[asset][dailyreturn[asset] <= -asset_var].mean()
-        assets_var[asset] = asset_var * np.sqrt(anualperiod) # Annualized VaR
-        assets_cvar[asset] = asset_cvar * np.sqrt(anualperiod) # Annualized CVaR
-    return pd.Series(assets_var), pd.Series(assets_cvar)
+        assets_var[asset] = asset_var * sqrt_time # Annualized Historic VaR
+        assets_cvar[asset] = asset_cvar * sqrt_time # Annualized Historic CVaR
+
+        # Parametic VaR and CVaR
+        asset_param_var = -daily_mean + (z_score * daily_std)
+        asset_param_cvar = -daily_mean + (daily_std * stats.norm.pdf(z_score) / alpha)
+        assets_param_var[asset] =  asset_param_var * sqrt_time
+        assets_param_cvar[asset] = asset_param_cvar * sqrt_time
+
+    return pd.Series(assets_var), pd.Series(assets_cvar), pd.Series(assets_param_var), pd.Series(assets_param_cvar)
 
 def compute_risk_descomposition(covfolioanual, pfolio_assets, pfolio_weights, riskfolio):
     # Compute %risk by asset
