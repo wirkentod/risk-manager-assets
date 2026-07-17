@@ -213,27 +213,43 @@ def plot_risk_descomposition(riskdescomposition):
     formatted_metrics['RDW'] = formatted_metrics['RDW'].map('{:.2f}x'.format)
     print(f"\033[33mRisk Descomposition:\n{formatted_metrics}\033[0m")
 
-def plot_assets_metrics(assets_metrics):
-    sorted_metrics = assets_metrics[['Weight', 'SharpeRatio', 'Return', 'Risk', 'VaRMC', 'CVaRMC', 'VaRParam','CVaRParam', 'VaRHist', 'CVaRHist']].sort_values(by='SharpeRatio', ascending=False)
+def plot_assets_metrics(assets_metrics, confidencelevel: float):
+    sorted_metrics = assets_metrics.sort_values(by='SharpeRatio', ascending=False) 
     formatted_metrics = sorted_metrics.copy()
-    formatted_metrics['Weight'] = formatted_metrics['Weight'].map('{:.2%}'.format)
-    formatted_metrics['SharpeRatio'] = formatted_metrics['SharpeRatio'].map('{:.2f}x'.format)
-    formatted_metrics['Return'] = formatted_metrics['Return'].map('{:.2%}'.format)
-    formatted_metrics['Risk'] = formatted_metrics['Risk'].map('{:.2%}'.format)
-    formatted_metrics['VaRHist'] = formatted_metrics['VaRHist'].map('{:.2%}'.format)
-    formatted_metrics['CVaRHist'] = formatted_metrics['CVaRHist'].map('{:.2%}'.format)
-    formatted_metrics['VaRParam'] = formatted_metrics['VaRParam'].map('{:.2%}'.format)
-    formatted_metrics['CVaRParam'] = formatted_metrics['CVaRParam'].map('{:.2%}'.format)
-    formatted_metrics['VaRMC'] = formatted_metrics['VaRMC'].map('{:.2%}'.format)
-    formatted_metrics['CVaRMC'] = formatted_metrics['CVaRMC'].map('{:.2%}'.format)
-    print(f"\033[35mAsset metrics (Sharpe Ratio Ordered):\n{formatted_metrics}\033[0m")
-
-def plot_portfolio_metrics(portfolio:dict, portfolioname: str):
-    for metric, value in portfolio.items():
+    for metric in assets_metrics:
         if "ratio" in metric.lower():
-            print(f"{portfolioname} Portfolio Annualized {metric}: {value:.2f}x")
+            formatted_metrics[metric] = formatted_metrics[metric].map('{:.2f}x'.format)
         else:
-            print(f"{portfolioname} Portfolio Annualized {metric}: {value * 100:.2f}%")
+            formatted_metrics[metric] = formatted_metrics[metric].map('{:.2%}'.format)
+    print(f"\033[35mAsset metrics (Sharpe Ratio Ordered) - Tail risk metrics at ({confidencelevel:.0%} Confidence):\n{formatted_metrics}\033[0m")
+
+def plot_portfolio_metrics(portfolio: dict, portfolioname: str, confidencelevel: float):
+    """Prints a clean, high-impact executive risk report 
+    using a portfolio metrics dictionary.
+    """
+    # Convert the key names to lowercase to avoid case-sensitivity errors
+    p = {k.lower(): v for k, v in portfolio.items()}
+    print("=" * 80)
+    print(f"{portfolioname.upper() + ' PORTFOLIO':^70}")
+    print("=" * 80)
+    
+    # Performance and Risk
+    print("PERFORMANCE & EFFICIENCY METRICS")
+    print("-" * 80)
+    print(f" Expected Annual Return:     {p.get('return', 0):>8.2%}")
+    print(f" Annual Volatility (Risk):   {p.get('risk', 0):>8.2%}")
+    print(f" Annualized Sharpe Ratio:    {p.get('sharperatio', 0):>8.2f}x")
+    print()
+    
+    # Tail Risk
+    print(f"ANNUALIZED TAIL RISK METRICS ({confidencelevel:.0%} Confidence)")
+    print("-" * 80)
+    print(f" {'METHODOLOGY':<29} {'VaR':<17} {'CVaR':<17}")
+    print(" ────────────────────────────────────────────────────────────────────")
+    print(f" Historical                  {p.get('var_hist', 0):<17.2%} {p.get('cvar_hist', 0):.2%}")
+    print(f" Parametric (Gaussian)       {p.get('var_param', 0):<17.2%} {p.get('cvar_param', 0):.2%}")
+    print(f" Monte Carlo (Multivariate)  {p.get('var_mc', 0):<17.2%} {p.get('cvar_mc', 0):.2%}")
+    print("=" * 80)
 
 def plot_portfolio_pca(eigenvalues, eigenvectors, corrfolio):
     # Identifiy correlations extremes in portfolio

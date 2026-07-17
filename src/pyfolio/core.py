@@ -34,7 +34,8 @@ def compute_portfolio_metrics(
     riskfreerate: float, 
     pfolio_assets: list, 
     pfolio_weights: list,
-    confidencelevel: float
+    confidencelevel: float,
+    numsimulations: int
 ) -> dict:
     """Compute risk metrics for a portfolio.
     """
@@ -42,7 +43,7 @@ def compute_portfolio_metrics(
     weight = pd.Series(pfolio_weights, index = pfolio_assets)
     #must return a dict portfolio
     returnP, riskP, sharpeP = portfolio_stats(weight, dailyreturn, anualperiod, riskfreerate)
-    tailriskmetrics = portfolio_valueatrisk(weight, dailyreturn,anualperiod,confidencelevel)
+    tailriskmetrics = portfolio_valueatrisk(weight, dailyreturn,anualperiod,confidencelevel,numsimulations)
     portfolio = {
         'Return': returnP, 
         'Risk': riskP, 
@@ -140,34 +141,50 @@ def portfolio_valueatrisk(
     weights: np.ndarray, 
     dailyreturn: pd.DataFrame, 
     anualperiod: int, 
-    confidencelevel: float
+    confidencelevel: float,
+    numsimulations: int
 ) -> dict:
+    alpha = 1 - confidencelevel
+    z_score = stats.norm.ppf(confidencelevel)
+    sqrt_time = np.sqrt(anualperiod)
     tailriskresult = {
         'VaR_Hist': {}, 'CVaR_Hist': {},
         'VaR_Param': {}, 'CVaR_Param': {},
         'VaR_MC': {}, 'CVaR_MC': {}
     }
-    # Compute VaR and CVaR historic for portfolio
+    # Portfolio Baseline (daily escale)
+    dailyreturn_mean = dailyreturn.mean()
+    dailyreturn_cov = dailyreturn.cov()
+    folio_mean_daily = np.dot(weights, dailyreturn_mean)
+    folio_std_daily = np.sqrt(np.dot(weights.T, np.dot(dailyreturn_cov, weights)))
     # =========================================================================
     # 1. HISTORIC METHOD
     # =========================================================================
-    alpha = 1 - confidencelevel
-    returnfolio = dailyreturn.dot(weights)
-    varfolio = -np.percentile(returnfolio, alpha * 100)
-    cvarfolio = -returnfolio[returnfolio <= -varfolio].mean()
-    tailriskresult['VaR_Hist']  = varfolio *  np.sqrt(anualperiod) # Annualized VaR ratio
-    tailriskresult['CVaR_Hist']  = cvarfolio * np.sqrt(anualperiod) # Annualized CVaR ratio
+    dailyreturnfolio = dailyreturn.dot(weights)
+    varfolio_hist = -np.percentile(dailyreturnfolio, alpha * 100)
+    cvarfolio_hist = -dailyreturnfolio[dailyreturnfolio <= -varfolio_hist].mean()
+    tailriskresult['VaR_Hist']  = varfolio_hist *  sqrt_time # Annualized VaR ratio
+    tailriskresult['CVaR_Hist']  = cvarfolio_hist * sqrt_time # Annualized CVaR ratio
     # =========================================================================
     # 2. PARAMETRIC METHOD
     # =========================================================================
-    tailriskresult['VaR_Param'] = 0
-    tailriskresult['CVaR_Param'] = 0
+    varfolio_param = -folio_mean_daily + (z_score * folio_std_daily)
+    cvarfolio_param = -folio_mean_daily + (folio_std_daily * stats.norm.pdf(z_score) / alpha)
+    tailriskresult['VaR_Param'] = varfolio_param * sqrt_time
+    tailriskresult['CVaR_Param'] = cvarfolio_param * sqrt_time
     # =========================================================================
     # 3. MONTE CARLO METHOD
     # =========================================================================
-    tailriskresult['VaR_MC'] = 0
-    tailriskresult['CVaR_MC'] = 0
-
+    np.random.seed(42)
+    cholesky_matrix = np.linalg.cholesky(dailyreturn_cov)
+    random_normal = np.random.normal(0, 1, size=(len(weights), numsimulations))
+    dailyreturn_simulation = np.dot(cholesky_matrix, random_normal).T + dailyreturn_mean.values
+    dailyreturn_foliosimulation = np.dot(dailyreturn_simulation, weights)
+    varfolio_mc = -np.percentile(dailyreturn_foliosimulation, alpha * 100)
+    limitreturns_mc = dailyreturn_foliosimulation[dailyreturn_foliosimulation <= -varfolio_mc]
+    cvarfolio_mc = -limitreturns_mc.mean()
+    tailriskresult['VaR_MC'] = varfolio_mc * sqrt_time
+    tailriskresult['CVaR_MC'] = cvarfolio_mc * sqrt_time
     return tailriskresult
 
 def compute_risk_descomposition(covfolioanual, pfolio_assets, pfolio_weights, riskfolio):
@@ -256,7 +273,8 @@ def compute_efficient_frontier(
     anualperiod: int, 
     riskfreerate: float, 
     pfolio_assets: list,
-    confidencelevel: float
+    confidencelevel: float,
+    numsimulations: int
 ) -> tuple:
     """
     Mathematically computes optimal portfolio weights and the efficient frontier curve
@@ -286,7 +304,7 @@ def compute_efficient_frontier(
     
     optimal_weights = opt_sharpe['x']
     opt_ret, opt_vol, opt_sh = portfolio_stats(optimal_weights, *optimization_args)
-    opt_tailriskmetrics = portfolio_valueatrisk(optimal_weights, dailyreturn,anualperiod,confidencelevel)
+    opt_tailriskmetrics = portfolio_valueatrisk(optimal_weights, dailyreturn,anualperiod,confidencelevel,numsimulations)
     optimal_portfolio = {
         'Return': opt_ret, 
         'Risk': opt_vol, 

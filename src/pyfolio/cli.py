@@ -50,23 +50,23 @@ def main(argv=None):
     covfolioanual = covfolio * ANUAL_PERIOD
     ini_risk = time.perf_counter()
     pfolio_assets, pfolio_weights = ASSETS, WEIGHTS
-    current_portfolio = compute_portfolio_metrics(daily_return, ANUAL_PERIOD, RISK_FREE_RATE, pfolio_assets, pfolio_weights, CONFIDENCE_LEVEL)
+    current_portfolio = compute_portfolio_metrics(daily_return, ANUAL_PERIOD, RISK_FREE_RATE, pfolio_assets, pfolio_weights, CONFIDENCE_LEVEL, NUM_SIMULATIONS)
     returnP = current_portfolio['Return']
     riskP = current_portfolio['Risk']
     sharpeP = current_portfolio['SharpeRatio']
-    plot_portfolio_metrics(current_portfolio, 'Current')
+    plot_portfolio_metrics(current_portfolio, 'Current', CONFIDENCE_LEVEL)
     # Compute metrics assets by portfolio
     assets_metrics = compute_assets_metrics(daily_return, ANUAL_PERIOD, RISK_FREE_RATE, WEIGHTS, CONFIDENCE_LEVEL, NUM_SIMULATIONS)
-    plot_assets_metrics(assets_metrics)
+    plot_assets_metrics(assets_metrics, CONFIDENCE_LEVEL)
     # Compute pca metrics by portfolio
     eigenvaluesfolio, eigenvectorsfolio = compute_pca(daily_return, ANUAL_PERIOD, ASSETS)
     riskdescomposition = compute_risk_descomposition(covfolioanual, pfolio_assets, pfolio_weights, riskP)
     plot_risk_descomposition(riskdescomposition)
     print(f"\033[34mPortfolio metrics computed in: {time.perf_counter() - ini_risk:.4f} seconds.\033[0m")
     ini_effrontier = time.perf_counter()
-    optimal_weights, optimal_portfolio, efficient_frontier_points, transition_map_points = compute_efficient_frontier(daily_return, ANUAL_PERIOD, RISK_FREE_RATE, pfolio_assets, CONFIDENCE_LEVEL)
+    optimal_weights, optimal_portfolio, efficient_frontier_points, transition_map_points = compute_efficient_frontier(daily_return, ANUAL_PERIOD, RISK_FREE_RATE, pfolio_assets, CONFIDENCE_LEVEL, NUM_SIMULATIONS)
     optimalriskdescomposition = compute_risk_descomposition(covfolioanual, pfolio_assets, optimal_weights, optimal_portfolio['Risk'])
-    plot_portfolio_metrics(optimal_portfolio, 'Optimal')
+    plot_portfolio_metrics(optimal_portfolio, 'Optimal', CONFIDENCE_LEVEL)
     plot_risk_descomposition(optimalriskdescomposition)
     print(f"\033[34mEfficient frontier computed in: {time.perf_counter() - ini_effrontier:.4f} seconds.\033[0m")
         
