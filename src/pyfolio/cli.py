@@ -22,7 +22,8 @@ from src.pyfolio import(
     ANUAL_PERIOD, 
     ASSETS, 
     WEIGHTS,
-    CONFIDENCE_LEVEL
+    CONFIDENCE_LEVEL,
+    NUM_SIMULATIONS
 )
 
 def build_parser():
@@ -56,7 +57,7 @@ def main(argv=None):
     print(f"Portfolio Annualized VaR: {varP*100:.2f}%")
     print(f"Portfolio Annualized CVaR: {cvarP*100:.2f}%")
     # Compute metrics assets by portfolio
-    assets_metrics = compute_assets_metrics(daily_return, ANUAL_PERIOD, RISK_FREE_RATE, WEIGHTS, CONFIDENCE_LEVEL)
+    assets_metrics = compute_assets_metrics(daily_return, ANUAL_PERIOD, RISK_FREE_RATE, WEIGHTS, CONFIDENCE_LEVEL, NUM_SIMULATIONS)
     plot_assets_metrics(assets_metrics)
     # Compute pca metrics by portfolio
     eigenvaluesfolio, eigenvectorsfolio = compute_pca(daily_return, ANUAL_PERIOD, ASSETS)

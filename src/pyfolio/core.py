@@ -47,7 +47,8 @@ def compute_assets_metrics(
     anualperiod: int, 
     riskfreerate: float, 
     pfolio_weights: list,
-    confidence_level: float
+    confidence_level: float,
+    numsimulations: int
 ) -> pd.DataFrame:
     """Compute risk metrics for each asset.
     """
@@ -55,52 +56,71 @@ def compute_assets_metrics(
     returns = dailyreturn.mean() * anualperiod # Annualized return
     risks = dailyreturn.std() * np.sqrt(anualperiod) # Annualized volatility
     sharpe_ratios = (returns - riskfreerate) / risks # Annualized Sharpe ratio
-    # Compute VaR and CVaR historic for each asset
-    assets_var, assets_cvar, assets_param_var, assets_param_cvar  = compute_assets_var_historic_method(dailyreturn, anualperiod, confidence_level)
+    # Compute VaR and CVaR for each asset
+    tailriskmetrics = compute_assets_valueatrisk(
+        dailyreturn, anualperiod, confidence_level, numsimulations
+    )
     # DataFrame with assets metrics
     return pd.DataFrame({
         'Weight': pfolio_weights,
         'Return': returns,
         'Risk': risks,
         'SharpeRatio': sharpe_ratios,
-        'VaR': assets_var,
-        'CVaR': assets_cvar,
-        'VaRParam': assets_param_var,
-        'CVaRParam': assets_param_cvar
+        'VaRHist': tailriskmetrics['VaR_Hist'],
+        'CVaRHist': tailriskmetrics['CVaR_Hist'],
+        'VaRParam': tailriskmetrics['VaR_Param'],
+        'CVaRParam': tailriskmetrics['CVaR_Param'],
+        'VaRMC': tailriskmetrics['VaR_MC'],
+        'CVaRMC': tailriskmetrics['CVaR_MC']
     })
 
-def compute_assets_var_historic_method(
+def compute_assets_valueatrisk(
     dailyreturn: pd.DataFrame, 
     anualperiod: int, 
-    confidencelevel: float
-) -> tuple:
+    confidencelevel: float,
+    numsimulations: int
+) -> dict:
     # Compute VaR and CVaR historic for each asset
     alpha = 1 - confidencelevel
-    assets_var = {}
-    assets_cvar = {}
     # Compute parameter to VaR and CVaR Parametic method
     z_score = stats.norm.ppf(confidencelevel)
     sqrt_time = np.sqrt(anualperiod)
-    assets_param_var = {}
-    assets_param_cvar = {}
+    tailriskresult = {
+        'VaR_Hist': {}, 'CVaR_Hist': {},
+        'VaR_Param': {}, 'CVaR_Param': {},
+        'VaR_MC': {}, 'CVaR_MC': {}
+    }
+    #Set seed for reproducibility in Monte Carlo
+    np.random.seed(42)
     for asset in dailyreturn.columns:
         # Daily parameters baseline by asset
         daily_mean = dailyreturn[asset].mean()
         daily_std = dailyreturn[asset].std()
+        # =========================================================================
+        # 1. HISTORIC METHOD
+        # =========================================================================
         # Historic VaR: lost percentil
-        asset_var = -np.percentile(dailyreturn[asset], alpha * 100)
+        asset_var_hist = -np.percentile(dailyreturn[asset], alpha * 100)
         # Historic CVaR mean return below VaR
-        asset_cvar = -dailyreturn[asset][dailyreturn[asset] <= -asset_var].mean()
-        assets_var[asset] = asset_var * sqrt_time # Annualized Historic VaR
-        assets_cvar[asset] = asset_cvar * sqrt_time # Annualized Historic CVaR
-
-        # Parametic VaR and CVaR
-        asset_param_var = -daily_mean + (z_score * daily_std)
-        asset_param_cvar = -daily_mean + (daily_std * stats.norm.pdf(z_score) / alpha)
-        assets_param_var[asset] =  asset_param_var * sqrt_time
-        assets_param_cvar[asset] = asset_param_cvar * sqrt_time
-
-    return pd.Series(assets_var), pd.Series(assets_cvar), pd.Series(assets_param_var), pd.Series(assets_param_cvar)
+        asset_cvar_hist = -dailyreturn[asset][dailyreturn[asset] <= -asset_var_hist].mean()
+        tailriskresult['VaR_Hist'][asset] = asset_var_hist * sqrt_time # Annualized Historic VaR
+        tailriskresult['CVaR_Hist'][asset] = asset_cvar_hist * sqrt_time # Annualized Historic CVaR
+        # =========================================================================
+        # 2. PARAMETRIC METHOD
+        # =========================================================================
+        asset_var_param = -daily_mean + (z_score * daily_std)
+        asset_cvar_param = -daily_mean + (daily_std * stats.norm.pdf(z_score) / alpha)
+        tailriskresult['VaR_Param'][asset] = asset_var_param * sqrt_time
+        tailriskresult['CVaR_Param'][asset] = asset_cvar_param * sqrt_time
+        # =========================================================================
+        # 3. MONTE CARLO METHOD
+        # =========================================================================
+        dailyreturn_assetsimulation = np.random.normal(daily_mean, daily_std, numsimulations)
+        asset_var_mc = -np.percentile(dailyreturn_assetsimulation, alpha * 100)
+        asset_cvar_mc = -dailyreturn_assetsimulation[dailyreturn_assetsimulation <= -asset_var_mc].mean()
+        tailriskresult['VaR_MC'][asset] = asset_var_mc * sqrt_time
+        tailriskresult['CVaR_MC'][asset] = asset_cvar_mc * sqrt_time
+    return {k: pd.Series(v) for k, v in tailriskresult.items()}
 
 def compute_risk_descomposition(covfolioanual, pfolio_assets, pfolio_weights, riskfolio):
     # Compute %risk by asset
