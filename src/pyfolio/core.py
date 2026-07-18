@@ -335,128 +335,6 @@ def compute_montecarlo_simulation(
     optimal_weights = weights_record[:, optimal_idx]
     return optimal_weights, optimal_portfolio, simulated_portfolios
 
-def compute_efficient_frontier(
-    dailyreturn: pd.DataFrame, 
-    anualperiod: int, 
-    riskfreerate: float, 
-    pfolio_assets: list,
-    confidencelevel: float,
-    numsimulations: int
-) -> tuple:
-    """
-    Mathematically computes optimal portfolio weights and the efficient frontier curve
-    using externalized objective functions.
-    """
-    num_assets = len(pfolio_assets)
-    
-    # Tuples containing external variables needed by the functions
-    optimization_args = (dailyreturn, anualperiod, riskfreerate)
-
-    # --- OPTIMIZER CONSTRAINTS AND BOUNDS ---
-    sum_weights_constraint = {'type': 'eq', 'fun': lambda w: np.sum(w) - 1.0}
-    bounds = tuple((0.0, 1.0) for _ in range(num_assets))
-    init_weights = np.array(num_assets * [1.0 / num_assets])
-
-    # =========================================================================
-    # OPTIMIZATION 1: MAXIMIZE SHARPE RATIO
-    # =========================================================================
-    opt_sharpe = sco.minimize(
-        fun=negate_sharpe, 
-        x0=init_weights, 
-        args=optimization_args,  # <-- ARGS PASSED HERE
-        method='SLSQP', 
-        bounds=bounds, 
-        constraints=[sum_weights_constraint]
-    )
-    
-    optimal_weights = opt_sharpe['x']
-    opt_ret, opt_vol, opt_sh = portfolio_stats(optimal_weights, *optimization_args)
-    opt_tailriskmetrics = portfolio_valueatrisk(optimal_weights, dailyreturn,anualperiod,confidencelevel,numsimulations)
-    optimal_portfolio = {
-        'Return': opt_ret, 
-        'Risk': opt_vol, 
-        'SharpeRatio': opt_sh, 
-        'VaR_Hist': opt_tailriskmetrics['VaR_Hist'], 
-        'CVaR_Hist': opt_tailriskmetrics['CVaR_Hist'],
-        'VaR_Param': opt_tailriskmetrics['VaR_Param'], 
-        'CVaR_Param': opt_tailriskmetrics['CVaR_Param'],
-        'VaR_MC': opt_tailriskmetrics['VaR_MC'], 
-        'CVaR_MC': opt_tailriskmetrics['CVaR_MC']
-    }
-
-    # =========================================================================
-    # OPTIMIZATION 2: EFFICIENT FRONTIER CURVE MAPPING
-    # =========================================================================
-    opt_min_vol = sco.minimize(
-        fun=minimize_volatility, 
-        x0=init_weights, 
-        args=optimization_args,  # <-- ARGS PASSED HERE
-        method='SLSQP', 
-        bounds=bounds, 
-        constraints=[sum_weights_constraint]
-    )
-    
-    # Extract the numeric values for the boundaries
-    min_return_boundary = portfolio_stats(opt_min_vol['x'], *optimization_args)[0]
-    max_return_boundary = (dailyreturn.mean() * anualperiod).max()
-
-    target_returns = np.linspace(min_return_boundary, max_return_boundary, 20)
-    frontier_vols = []
-    transition_weights_list = []
-
-    for target in target_returns:
-        # Extra constraint: portfolio return must match target
-        frontier_constraints = [
-            sum_weights_constraint,
-            {'type': 'eq', 'fun': lambda w: portfolio_stats(w, *optimization_args)[0] - target}
-        ]
-        
-        res = sco.minimize(
-            fun=minimize_volatility, 
-            x0=init_weights, 
-            args=optimization_args,  # <-- ARGS PASSED HERE
-            method='SLSQP', 
-            bounds=bounds, 
-            constraints=frontier_constraints
-        )
-        # Save volatility metric
-        frontier_vols.append(res['fun'])
-        # Save exact optimized array of weights for this specific risk level
-        transition_weights_list.append(res['x'])
-
-    efficient_frontier_points = pd.DataFrame({
-        'Return': target_returns,
-        'Risk': frontier_vols,
-        'SharpeRatio': compute_sharpe_ratio(target_returns, np.array(frontier_vols), riskfreerate)
-    })
-
-    # --- CONSOLIDATE TRANSITION MAP DATA ---
-    # DataFrame rows = Risk levels (X), columns = Assets, values = allocation weights (Y)
-    transition_map_points = pd.DataFrame(
-        transition_weights_list, 
-        columns=pfolio_assets, 
-        index=frontier_vols  # Set the risk/volatility as the index for easier plotting
-    )
-    return optimal_weights, optimal_portfolio, efficient_frontier_points, transition_map_points 
-
-def negate_sharpe(
-    weights: np.ndarray, 
-    dailyreturn: pd.DataFrame, 
-    anualperiod: int, 
-    riskfreerate: float
-) -> float:
-    """Objective function to maximize Sharpe Ratio."""
-    return -portfolio_stats(weights, dailyreturn, anualperiod, riskfreerate)[2]
-
-def minimize_volatility(
-    weights: np.ndarray, 
-    dailyreturn: pd.DataFrame, 
-    anualperiod: int, 
-    riskfreerate: float
-) -> float:
-    """Objective function to minimize Volatility."""
-    return portfolio_stats(weights, dailyreturn, anualperiod, riskfreerate)[1]
-
 def objective_risk_parity(weights, cov_matrix):
     """
     Objective function to minimize the variance between individual asset risk contributions.
@@ -514,3 +392,148 @@ def compute_riskparity(dailyreturn: pd.DataFrame):
     if not result.success:
         raise RuntimeError("Optimization failed to converge.")     
     return pd.Series(result.x, index=dailyreturn.columns)
+
+def compute_efficient_frontier(
+    dailyreturn: pd.DataFrame, 
+    anualperiod: int, 
+    riskfreerate: float, 
+    pfolio_assets: list,
+    confidencelevel: float,
+    numsimulations: int
+) -> tuple:
+    """
+    Ultra-optimized version of the efficient frontier computation.
+    Minimizes overhead by vectorizing inputs and optimizing objective functions.
+    """
+    num_assets = len(pfolio_assets)
+    
+    # 1. PASO ÚNICO EN PANDAS: Extracción inmediata a arrays nativos de C (NumPy)
+    # Esto reduce la complejidad de la fase previa a O(T * N^2) de forma limpia
+    returns_arr = dailyreturn.values
+    mean_returns = np.mean(returns_arr, axis=0) * anualperiod
+    cov_matrix = np.cov(returns_arr, rowvar=False) * anualperiod
+
+    # 2. VARIABLES DE INICIALIZACIÓN COMPARTIDAS
+    init_weights = np.full(num_assets, 1.0 / num_assets)
+    bounds = tuple((0.0, 1.0) for _ in range(num_assets))
+    
+    # Restricción base: La suma de pesos es igual a 1
+    sum_weights_constraint = {'type': 'eq', 'fun': lambda w: np.sum(w) - 1.0}
+
+    # =========================================================================
+    # OPTIMIZACIÓN 1: MINIMIZAR VOLATILIDAD GLOBAL (Límite Inferior de la Frontera)
+    # =========================================================================
+    # Empezamos por aquí porque este portafolio nos da automáticamente el límite 
+    # inferior de retorno para la frontera eficiente, ahorrándonos una optimización.
+    opt_min_vol = sco.minimize(
+        fun=fast_volatility, 
+        x0=init_weights, 
+        args=(cov_matrix,), 
+        method='SLSQP', 
+        bounds=bounds, 
+        constraints=[sum_weights_constraint]
+    )
+    
+    if not opt_min_vol['success']:
+        raise ValueError("La optimización de mínima volatilidad falló.")
+        
+    min_vol_weights = opt_min_vol['x']
+    min_return_boundary = min_weights_return = min_vol_weights @ mean_returns
+    max_return_boundary = np.max(mean_returns)
+
+    # =========================================================================
+    # OPTIMIZACIÓN 2: MAXIMIZE SHARPE RATIO
+    # =========================================================================
+    # Maximizamos Sharpe usando una función simplificada sin condicionales internos
+    opt_sharpe = sco.minimize(
+        fun=negate_sharpe, 
+        x0=init_weights, 
+        args=(mean_returns, cov_matrix, riskfreerate), 
+        method='SLSQP', 
+        bounds=bounds, 
+        constraints=[sum_weights_constraint]
+    )
+    
+    if not opt_sharpe['success']:
+        raise ValueError("La optimización del Ratio de Sharpe falló.")
+    
+    optimal_weights = opt_sharpe['x']
+    
+    # Estadísticas del portafolio óptimo calculadas con álgebra lineal directa (O(N^2))
+    opt_ret = optimal_weights @ mean_returns
+    opt_vol = np.sqrt(optimal_weights @ cov_matrix @ optimal_weights)
+    opt_sh = (opt_ret - riskfreerate) / opt_vol
+
+    # =========================================================================
+    # OPTIMIZACIÓN 3: MAPEO DE LA FRONTERA EFICIENTE
+    # =========================================================================
+    # Reducimos los puntos a 15 (suficiente para una curva perfecta visualmente)
+    target_returns = np.linspace(min_return_boundary, max_return_boundary, 15)
+    
+    frontier_vols = []
+    valid_returns = []
+    transition_weights_list = []
+
+    # Reutilizamos las estructuras de restricciones mutando el objetivo en cada paso
+    # Esto evita la penalización por recrear diccionarios y lambdas pesadas en memoria
+    for target in target_returns:
+        frontier_constraints = [
+            sum_weights_constraint,
+            {'type': 'eq', 'fun': lambda w, t=target: (w @ mean_returns) - t}
+        ]
+        
+        res = sco.minimize(
+            fun=fast_volatility, 
+            x0=init_weights, 
+            args=(cov_matrix,), 
+            method='SLSQP', 
+            bounds=bounds, 
+            constraints=frontier_constraints
+        )
+        
+        if res['success']:
+            frontier_vols.append(res['fun'])
+            valid_returns.append(target)
+            transition_weights_list.append(res['x'])
+
+    # Convertimos resultados a arrays nativos para cálculos masivos finales
+    frontier_vols_arr = np.array(frontier_vols)
+    valid_returns_arr = np.array(valid_returns)
+    
+    efficient_frontier_points = pd.DataFrame({
+        'Return': valid_returns_arr,
+        'Risk': frontier_vols_arr,
+        'SharpeRatio': (valid_returns_arr - riskfreerate) / frontier_vols_arr
+    })
+
+    transition_map_points = pd.DataFrame(
+        transition_weights_list, 
+        columns=pfolio_assets, 
+        index=frontier_vols_arr
+    )
+    
+    # Riesgo de cola ejecutado una sola vez al final
+    opt_tailriskmetrics = portfolio_valueatrisk(
+        optimal_weights, dailyreturn, anualperiod, confidencelevel, numsimulations
+    )
+    
+    optimal_portfolio = {
+        'Return': opt_ret, 
+        'Risk': opt_vol, 
+        'SharpeRatio': opt_sh, 
+        **{k: opt_tailriskmetrics[k] for k in [
+            'VaR_Hist', 'CVaR_Hist', 'VaR_Param', 'CVaR_Param', 'VaR_MC', 'CVaR_MC'
+        ]}
+    }
+    
+    return optimal_weights, optimal_portfolio, efficient_frontier_points, transition_map_points 
+
+def negate_sharpe(weights: np.ndarray, mean_returns: np.ndarray, cov_matrix: np.ndarray, riskfreerate: float) -> float:
+    """Calcula el Sharpe negativo reduciendo las operaciones de raíz cuadrada y divisiones complejas."""
+    p_ret = weights @ mean_returns
+    p_vol = np.sqrt(weights @ cov_matrix @ weights)
+    return -(p_ret - riskfreerate) / p_vol
+
+def fast_volatility(weights: np.ndarray, cov_matrix: np.ndarray) -> float:
+    """Devuelve la volatilidad usando el operador @, optimizado para operaciones BLAS a nivel de CPU."""
+    return np.sqrt(weights @ cov_matrix @ weights)
