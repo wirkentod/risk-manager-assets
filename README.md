@@ -1,6 +1,6 @@
 # Risk Management Asset Project
 
-This project computes risk asset and portfolios.
+This project computes risk assets and portfolios.
 
 Quick start
 
