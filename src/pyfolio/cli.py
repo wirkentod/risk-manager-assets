@@ -1,16 +1,23 @@
 """Simple CLI to compute and optionally save/plot correlations."""
 import argparse, time
 from src.pyfolio import(
-    load_data, 
+    # I/O files data
+    load_data,
+    save_corr,
+    # process data
     compute_daily_return,
-    compute_correlation, 
-    compute_covariance, 
-    save_corr, 
+    compute_correlation,
+    compute_covariance,
+    # basic metrics
+    compute_assets_metrics,
+    compute_portfolio_metrics,
+    # medium metrics
     compute_risk_descomposition, 
-    compute_pca, 
-    compute_assets_metrics, 
-    compute_portfolio_metrics, 
+    compute_pca,
+    # weights
     compute_efficient_frontier, 
+    compute_riskparity,
+    # visualization functions
     plot_risk_descomposition, 
     plot_heatmap,
     plot_portfolio_frontier, 
@@ -18,6 +25,7 @@ from src.pyfolio import(
     plot_portfolio_pca,  
     plot_assets_metrics, 
     plot_portfolio_metrics, 
+    # global parameters
     RISK_FREE_RATE, 
     ANUAL_PERIOD, 
     ASSETS, 
@@ -69,7 +77,14 @@ def main(argv=None):
     plot_portfolio_metrics(optimal_portfolio, 'Optimal', CONFIDENCE_LEVEL)
     plot_risk_descomposition(optimalriskdescomposition)
     print(f"\033[34mEfficient frontier computed in: {time.perf_counter() - ini_effrontier:.4f} seconds.\033[0m")
-        
+    ini_riskparity = time.perf_counter()
+    riskparityfolio_weights = compute_riskparity(daily_return)
+    riskparity_portfolio = compute_portfolio_metrics(daily_return, ANUAL_PERIOD, RISK_FREE_RATE, pfolio_assets, riskparityfolio_weights, CONFIDENCE_LEVEL, NUM_SIMULATIONS)
+    plot_portfolio_metrics(riskparity_portfolio, 'Risk Parity', CONFIDENCE_LEVEL)
+    riskparitydescomposition = compute_risk_descomposition(covfolioanual, pfolio_assets, riskparityfolio_weights, riskparity_portfolio['Risk'])
+    plot_risk_descomposition(riskparitydescomposition)
+    print(f"\033[34mRisk Parity computed in: {time.perf_counter() - ini_riskparity:.4f} seconds.\033[0m")
+
     # Plot results
     if args.out:
         save_corr(corrfolio, args.out)

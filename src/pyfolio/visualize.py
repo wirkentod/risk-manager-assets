@@ -214,7 +214,7 @@ def plot_risk_descomposition(riskdescomposition):
     print(f"\033[33mRisk Descomposition:\n{formatted_metrics}\033[0m")
 
 def plot_assets_metrics(assets_metrics, confidencelevel: float):
-    sorted_metrics = assets_metrics.sort_values(by='SharpeRatio', ascending=False) 
+    sorted_metrics = assets_metrics[['Weight', 'SharpeRatio', 'Return', 'Risk', 'VaRHist', 'VaRParam', 'VaRMC','CVaRHist','CVaRParam','CVaRMC']].sort_values(by='SharpeRatio', ascending=False)
     formatted_metrics = sorted_metrics.copy()
     for metric in assets_metrics:
         if "ratio" in metric.lower():

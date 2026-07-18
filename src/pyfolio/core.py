@@ -1,6 +1,7 @@
 """Core functions: load data and compute correlations."""
 from pathlib import Path
 from sklearn.decomposition import PCA
+from sklearn.covariance import LedoitWolf
 import pandas as pd
 import numpy as np
 import scipy.optimize as sco
@@ -225,21 +226,6 @@ def compute_daily_return(
 def standarized_daily_return(dailyreturn: pd.DataFrame) -> pd.DataFrame:
     return (dailyreturn - dailyreturn.mean()) / dailyreturn.std()
 
-def compute_correlation(
-    dailyreturn: pd.DataFrame, 
-    method="pearson"
-) -> pd.DataFrame:
-    """Compute correlation matrix for numeric columns.
-    """
-    return dailyreturn.corr(method=method)
-
-def compute_covariance(
-    dailyreturn: pd.DataFrame
-) -> pd.DataFrame:
-    """Compute covariance matrix for numeric columns.
-    """
-    return dailyreturn.cov()
-
 def portfolio_stats(
     weights: np.ndarray, 
     dailyreturn: pd.DataFrame, 
@@ -262,11 +248,92 @@ def compute_risk(dailyreturn: pd.DataFrame, weights: np.ndarray, anualperiod: in
 def compute_sharpe_ratio(returnP: float, riskP: float, riskfreerate: float) -> float:
     return (returnP - riskfreerate) / riskP # Annualized sharpe ratio
 
+def compute_covariance(
+    dailyreturn: pd.DataFrame
+) -> pd.DataFrame:
+    """Compute covariance matrix for numeric columns.
+    """
+    return dailyreturn.cov()
+
+def compute_correlation(
+    dailyreturn: pd.DataFrame, 
+    method="pearson"
+) -> pd.DataFrame:
+    """Compute correlation matrix for numeric columns.
+    """
+    return dailyreturn.corr(method=method)
+
 def save_corr(df_corr: pd.DataFrame, out_path: str):
     """Save correlation matrix to a CSV file."""
     p = Path(out_path)
     p.parent.mkdir(parents=True, exist_ok=True)
     df_corr.to_csv(p)
+
+def compute_pca(
+    dailyreturn: pd.DataFrame, 
+    anualperiod: int, 
+    pfolio_assets: list
+) -> tuple:
+    """Compute PCA for dimensionality reduction."""
+    #compute covariance matrix and annualize it
+    #cov_matrix_annualized = compute_covariance(dailyreturn) * anualperiod
+    #corr_matrix = compute_correlation(dailyreturn)
+    dailyreturnstandarized = standarized_daily_return(dailyreturn)
+    #only if we consider 3 vector risk: (a) market/beta, (b) sectorial y (c) money rotation
+    #pca = PCA(n_components=min(3, len(pfolio_assets)))
+    pca = PCA(n_components=len(pfolio_assets))
+    #compute eigenvalues and eigenvectors
+    pca.fit(dailyreturnstandarized)
+    #eigenvalues (type: np.ndarray), variance explained by each component:
+    eigenvalues = pca.explained_variance_ratio_
+    #eigenvector (type: pd.DataFrame), load factors, relation between each asset and component
+    eigenvectors = pd.DataFrame(
+        pca.components_.T, 
+        columns=[f'PC{i+1}' for i in range(pca.n_components_)], 
+        index=pfolio_assets
+    )
+    return eigenvalues, eigenvectors
+
+def compute_montecarlo_simulation(
+    dailyreturn: pd.DataFrame, 
+    anualperiod: int, 
+    riskfreerate: float, 
+    pfolio_assets: list, 
+    num_simulations: int
+) -> tuple:
+    """Compute Monte Carlo simulation for portfolio optimization.
+    anualperiod: number of trading days in a year (e.g., 252).
+    pfolio_assets: list of asset names.
+    num_simulations: number of random portfolios to simulate.
+    """
+    # MonteCarlo Simulation
+    results = np.zeros((4, num_simulations))
+    weights_record = np.zeros((len(pfolio_assets), num_simulations))
+    alpha_param = 0.1 # Coefficient for the Dirichlet distribution to ensure weights sum to 1 and are non-negative
+    for i in range(num_simulations):
+        # Random weights using Dirichlet distribution to ensure they sum to 1 and are non-negative
+        weights = np.random.dirichlet([alpha_param] * len(pfolio_assets))
+        weights_record[:, i] = weights
+        # Annualized portfolio return
+        portfolio_return = compute_return(dailyreturn, weights, anualperiod) 
+        # Annualized portfolio volatility
+        portfolio_stddev = compute_risk(dailyreturn, weights, anualperiod)
+        # Annualized Sharpe ratio
+        portfolio_sharperatio = compute_sharpe_ratio(portfolio_return, portfolio_stddev, riskfreerate)
+
+        results[0, i] = portfolio_return
+        results[1, i] = portfolio_stddev
+        results[2, i] = portfolio_sharperatio
+        results[3, i] = i  # Index of the simulation
+        
+    # Convert results to a DataFrame
+    simulated_portfolios = pd.DataFrame(results.T, columns=['Return', 'Risk', 'SharpeRatio', 'Simulation'])
+
+    # Find the portfolio with the highest Sharpe ratio
+    optimal_idx = simulated_portfolios['SharpeRatio'].idxmax()
+    optimal_portfolio = simulated_portfolios.loc[optimal_idx]
+    optimal_weights = weights_record[:, optimal_idx]
+    return optimal_weights, optimal_portfolio, simulated_portfolios
 
 def compute_efficient_frontier(
     dailyreturn: pd.DataFrame, 
@@ -372,47 +439,6 @@ def compute_efficient_frontier(
     )
     return optimal_weights, optimal_portfolio, efficient_frontier_points, transition_map_points 
 
-def compute_montecarlo_simulation(
-    dailyreturn: pd.DataFrame, 
-    anualperiod: int, 
-    riskfreerate: float, 
-    pfolio_assets: list, 
-    num_simulations: int
-) -> tuple:
-    """Compute Monte Carlo simulation for portfolio optimization.
-    anualperiod: number of trading days in a year (e.g., 252).
-    pfolio_assets: list of asset names.
-    num_simulations: number of random portfolios to simulate.
-    """
-    # MonteCarlo Simulation
-    results = np.zeros((4, num_simulations))
-    weights_record = np.zeros((len(pfolio_assets), num_simulations))
-    alpha_param = 0.1 # Coefficient for the Dirichlet distribution to ensure weights sum to 1 and are non-negative
-    for i in range(num_simulations):
-        # Random weights using Dirichlet distribution to ensure they sum to 1 and are non-negative
-        weights = np.random.dirichlet([alpha_param] * len(pfolio_assets))
-        weights_record[:, i] = weights
-        # Annualized portfolio return
-        portfolio_return = compute_return(dailyreturn, weights, anualperiod) 
-        # Annualized portfolio volatility
-        portfolio_stddev = compute_risk(dailyreturn, weights, anualperiod)
-        # Annualized Sharpe ratio
-        portfolio_sharperatio = compute_sharpe_ratio(portfolio_return, portfolio_stddev, riskfreerate)
-
-        results[0, i] = portfolio_return
-        results[1, i] = portfolio_stddev
-        results[2, i] = portfolio_sharperatio
-        results[3, i] = i  # Index of the simulation
-        
-    # Convert results to a DataFrame
-    simulated_portfolios = pd.DataFrame(results.T, columns=['Return', 'Risk', 'SharpeRatio', 'Simulation'])
-
-    # Find the portfolio with the highest Sharpe ratio
-    optimal_idx = simulated_portfolios['SharpeRatio'].idxmax()
-    optimal_portfolio = simulated_portfolios.loc[optimal_idx]
-    optimal_weights = weights_record[:, optimal_idx]
-    return optimal_weights, optimal_portfolio, simulated_portfolios
-
 def negate_sharpe(
     weights: np.ndarray, 
     dailyreturn: pd.DataFrame, 
@@ -431,28 +457,60 @@ def minimize_volatility(
     """Objective function to minimize Volatility."""
     return portfolio_stats(weights, dailyreturn, anualperiod, riskfreerate)[1]
 
-def compute_pca(
-    dailyreturn: pd.DataFrame, 
-    anualperiod: int, 
-    pfolio_assets: list
-) -> tuple:
-    """Compute PCA for dimensionality reduction."""
-    #compute covariance matrix and annualize it
-    #cov_matrix_annualized = compute_covariance(dailyreturn) * anualperiod
-    #corr_matrix = compute_correlation(dailyreturn)
-    dailyreturnstandarized = standarized_daily_return(dailyreturn)
-    #only if we consider 3 vector risk: (a) market/beta, (b) sectorial y (c) money rotation
-    #pca = PCA(n_components=min(3, len(pfolio_assets)))
-    pca = PCA(n_components=len(pfolio_assets))
-    #compute eigenvalues and eigenvectors
-    pca.fit(dailyreturnstandarized)
-    #eigenvalues (type: np.ndarray), variance explained by each component:
-    eigenvalues = pca.explained_variance_ratio_
-    #eigenvector (type: pd.DataFrame), load factors, relation between each asset and component
-    eigenvectors = pd.DataFrame(
-        pca.components_.T, 
-        columns=[f'PC{i+1}' for i in range(pca.n_components_)], 
-        index=pfolio_assets
-    )
-    return eigenvalues, eigenvectors
+def objective_risk_parity(weights, cov_matrix):
+    """
+    Objective function to minimize the variance between individual asset risk contributions.
+    """
+    portfolio_variance = np.dot(weights.T, np.dot(cov_matrix, weights))
+    portfolio_volatility = np.sqrt(portfolio_variance)
+    
+    # Marginal Contribution to Risk (MCR)
+    marginal_risk = np.dot(cov_matrix, weights) / portfolio_volatility
+    
+    # Absolute Risk Contribution (RC) of each asset
+    component_risk = weights * marginal_risk
+    
+    # Target risk contribution (Equal risk distribution)
+    num_assets = len(weights)
+    target_risk = portfolio_volatility / num_assets
+    
+    # Sum of squared errors between actual and target risk contributions
+    error = np.sum((component_risk - target_risk) ** 2)
+    return error
 
+def compute_riskparity(dailyreturn: pd.DataFrame):
+    """
+    Computes optimal Risk Parity weights using a Ledoit-Wolf Shrinkage covariance matrix 
+    to handle noise and sample error in historical asset returns.
+    """
+    num_assets = len(dailyreturn.columns)
+    
+    # --- SHRINKAGE STEP ---
+    # Fit the Ledoit-Wolf shrinkage model on the historical return data
+    # This shrinks the sample covariance towards a structured target (constant variance)
+    lw_estimator = LedoitWolf().fit(dailyreturn.values)
+    cov_matrix_shrunk = lw_estimator.covariance_
+    
+    # Initial guess: Equal weights distribution (1 / N)
+    init_weights = np.ones(num_assets) / num_assets
+    
+    # Portfolio constraint: Weights must sum up to 1
+    constraints = ({'type': 'eq', 'fun': lambda w: np.sum(w) - 1})
+    
+    # Boundary conditions: Long-only portfolio (weights between 0 and 1)
+    bounds = tuple((0, 1) for _ in range(num_assets))
+    
+    # Run the optimization using the shrunk covariance matrix as an argument
+    result = sco.minimize(
+        objective_risk_parity, 
+        init_weights, 
+        args=(cov_matrix_shrunk,),  # Using the clean shrunk covariance matrix here
+        method='SLSQP', 
+        bounds=bounds, 
+        constraints=constraints,
+        options={'ftol': 1e-9}
+    )
+    
+    if not result.success:
+        raise RuntimeError("Optimization failed to converge.")     
+    return pd.Series(result.x, index=dailyreturn.columns)
