@@ -38,7 +38,7 @@ def build_parser():
     p = argparse.ArgumentParser(description="Compute asset correlation matrix from CSV")
     p.add_argument("input", help="path to input CSV file")
     p.add_argument("--dailychange", default="log", choices=("simple", "log"), help="daily return change method")
-    p.add_argument("--term", default="3M", choices=("1W", "1M", "2M", "3M", "6M", "1A", "2A"), help="term scenario to compute")
+    p.add_argument("--term", default="3M", choices=("1W", "1M", "2M", "3M", "6M", "1A", "2A", "3A", "5A", "6A"), help="term scenario to compute")
     p.add_argument("--method", default="pearson", choices=("pearson", "spearman"), help="correlation method")
     p.add_argument("--out", help="path to save CSV of correlation matrix")
     p.add_argument("--plot", help="path to save heatmap image (PNG) or omit to show")
