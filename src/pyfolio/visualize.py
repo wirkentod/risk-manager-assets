@@ -251,7 +251,7 @@ def plot_portfolio_metrics(portfolio: dict, portfolioname: str, confidencelevel:
     print(f" Monte Carlo (Multivariate)  {p.get('var_mc', 0):<17.2%} {p.get('cvar_mc', 0):.2%}")
     print("=" * 80)
 
-def plot_portfolio_pca(eigenvalues, eigenvectors, corrfolio):
+def plot_portfolio_pca(eigenvalues, eigenvectors, corrfolio, pcamargin):
     # Identifiy correlations extremes in portfolio
     top_extremes = 4
     upper_corr = corrfolio.where(np.triu(np.ones(corrfolio.shape), k=1).astype(bool))
@@ -278,10 +278,8 @@ def plot_portfolio_pca(eigenvalues, eigenvectors, corrfolio):
     # Formatear la matriz de cargas para identificar rápidamente dominancias
     print(eigenvectors.round(4).to_string())
 
-    #Automatizar PCx
-    umbral = 0.50 #50% cumulate eigenvalues
     eigenvalsum = np.cumsum(eigenvalues)
-    num_pcx = np.sum(eigenvalsum <= umbral)
+    num_pcx = np.sum(eigenvalsum <= pcamargin) #PCA_MARGIN: threshold cumulate eigenvalues (exm: 50%)
     eigenvectorsround = eigenvectors.round(4)
     for j in range(1, num_pcx + 1):
         print(f"\n{'-' * 80}")

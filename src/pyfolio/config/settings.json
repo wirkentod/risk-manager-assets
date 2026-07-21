@@ -1,8 +1,9 @@
 {
     "RISK_FREE_RATE": 0.00,
     "ANUAL_PERIOD": 252,
-    "ASSETS": ["SPY","QQQ"],
-    "WEIGHTS": [0.6,0.4],
+    "ASSETS": ["SPY","QQQ","ETFPESOV","GLD", "SMH"],
+    "WEIGHTS": [0.2, 0.2, 0.2, 0.2, 0.2],
     "CONFIDENCE_LEVEL": 0.95,
-    "NUM_SIMULATIONS": 10000
+    "NUM_SIMULATIONS": 10000,
+    "PCA_MARGIN": 0.99
 }

@@ -31,7 +31,8 @@ from src.pyfolio import(
     ASSETS, 
     WEIGHTS,
     CONFIDENCE_LEVEL,
-    NUM_SIMULATIONS
+    NUM_SIMULATIONS,
+    PCA_MARGIN
 )
 
 def build_parser():
@@ -89,7 +90,7 @@ def main(argv=None):
     if args.out:
         save_corr(corrfolio, args.out)
     if args.plot:
-        plot_portfolio_pca(eigenvaluesfolio, eigenvectorsfolio, corrfolio)
+        plot_portfolio_pca(eigenvaluesfolio, eigenvectorsfolio, corrfolio, PCA_MARGIN)
         plot_heatmap(corrfolio, args.plot)
         ini_plotportfolio = time.perf_counter()
         name_plot_portfolio = args.plotfolio + args.term + "_" + args.dailychange + "_frontier.png" if args.plotfolio else None

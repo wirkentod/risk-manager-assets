@@ -42,7 +42,8 @@ from .config.lector import (
     ASSETS, 
     WEIGHTS, 
     CONFIDENCE_LEVEL, 
-    NUM_SIMULATIONS
+    NUM_SIMULATIONS,
+    PCA_MARGIN
 )
 
 # =====================================================================
@@ -81,4 +82,5 @@ __all__ = [
     "WEIGHTS",
     "CONFIDENCE_LEVEL",
     "NUM_SIMULATIONS",
+    "PCA_MARGIN"
 ]
