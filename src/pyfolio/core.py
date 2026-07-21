@@ -207,15 +207,18 @@ def compute_risk_descomposition(covfolioanual, pfolio_assets, pfolio_weights, ri
 
 def compute_daily_return(
     datafolio: pd.DataFrame, 
+    offset: str, 
     term: str, 
     dailychange: str
 ) -> pd.DataFrame:
     """Compute a term daily return for a portfolio.
+    offset: 'T0','1W', '1M', '2M', '3M', '6M', '1A', '2A', '3A', '5A', '6A'.
     term: '1W', '1M', '2M', '3M', '6M', '1A', '2A', '3A', '5A', '6A'.
     dailychange: 'log', 'simple'
     """
+    offset_choice = {"T0": 0, "1W": 5, "1M": 21, "2M": 42, "3M": 63, "6M": 126, "1A": 252, "2A": 504, "3A": 756, "5A": 1260, "6A": 1640}
     term_choice = {"1W": 5, "1M": 21, "2M": 42, "3M": 63, "6M": 126, "1A": 252, "2A": 504, "3A": 756, "5A": 1260, "6A": 1640}
-    numeric = datafolio.select_dtypes(include="number")[:term_choice[term]+1]
+    numeric = datafolio.select_dtypes(include="number")[offset_choice[offset]: offset_choice[offset] + term_choice[term]+1]
     if dailychange == "log":
         return np.log(numeric / numeric.shift(-1))
     elif dailychange == "simple":

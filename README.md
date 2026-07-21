@@ -30,10 +30,11 @@ pip install -r requirements.txt
 Run the analysis tool directly by invoking the properly mapped module:
 
 ```bash
-python -m src.pyfolio.cli data/sample_assets.csv --term 1A --dailychange log --method pearson --out out/corr.csv --plot out/corr.png --plotfolio out/pflio
+python -m src.pyfolio.cli data/sample_assets.csv --offset T0 --term 1A --dailychange log --method pearson --out out/corr.csv --plot out/corr.png --plotfolio out/pflio
 ```
 
 ### Available Arguments:
+* `--offset`: How many days prior to the present (T=0) your data window ends (e.g., `T0` [T=0] now, `1Y` for one year).
 * `--term`: Timeframe window for the analysis (e.g., `1Y` for one year, `6M` for six months).
 * `--dailychange`: Formula for financial return calculation (`log` for logarithmic returns, `simple` for standard percentage change).
 * `--method`: Statistical correlation method (`pearson`, `spearman`, or `kendall`).

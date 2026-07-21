@@ -40,6 +40,7 @@ def build_parser():
     p.add_argument("input", help="path to input CSV file")
     p.add_argument("--dailychange", default="log", choices=("simple", "log"), help="daily return change method")
     p.add_argument("--term", default="3M", choices=("1W", "1M", "2M", "3M", "6M", "1A", "2A", "3A", "5A", "6A"), help="term scenario to compute")
+    p.add_argument("--offset", default="T0", choices=("T0","1W", "1M", "2M", "3M", "6M", "1A", "2A", "3A", "5A", "6A"), help="how many days prior to the present (T=0) your data window ends")
     p.add_argument("--method", default="pearson", choices=("pearson", "spearman"), help="correlation method")
     p.add_argument("--out", help="path to save CSV of correlation matrix")
     p.add_argument("--plot", help="path to save heatmap image (PNG) or omit to show")
@@ -52,7 +53,7 @@ def main(argv=None):
     parser = build_parser()
     args = parser.parse_args(argv)
     datafolio = load_data(args.input, ASSETS)
-    daily_return = compute_daily_return(datafolio, args.term, args.dailychange).dropna()
+    daily_return = compute_daily_return(datafolio, args.offset, args.term, args.dailychange).dropna()
     print(f"\033[34mData loaded in: {time.perf_counter() - ini_load:.4f} seconds.\033[0m")
     corrfolio = compute_correlation(daily_return, method=args.method)
     covfolio = compute_covariance(daily_return)
@@ -93,10 +94,10 @@ def main(argv=None):
         plot_portfolio_pca(eigenvaluesfolio, eigenvectorsfolio, corrfolio, PCA_MARGIN)
         plot_heatmap(corrfolio, args.plot)
         ini_plotportfolio = time.perf_counter()
-        name_plot_portfolio = args.plotfolio + args.term + "_" + args.dailychange + "_frontier.png" if args.plotfolio else None
+        name_plot_portfolio = args.plotfolio + "_offs" + args.offset + "_term" + args.term + "_" + args.dailychange + "_frontier.png" if args.plotfolio else None
         plot_portfolio_frontier(optimal_weights, optimal_portfolio, efficient_frontier_points, pfolio_assets, assets_metrics, returnP, riskP, sharpeP, name_plot_portfolio)
         print(f"\033[34mEfficient frontier plot computed in: {time.perf_counter() - ini_plotportfolio:.4f} seconds.\033[0m")
-        name_plot_transitionmap = args.plotfolio + args.term + "_" + args.dailychange + "_transition_map.png" if args.plotfolio else None
+        name_plot_transitionmap = args.plotfolio + "_offs" + args.offset + "_term" + args.term + "_" + args.dailychange + "_transition_map.png" if args.plotfolio else None
         ini_plottransition = time.perf_counter()
         plot_transition_map(transition_map_points, name_plot_transitionmap)
         print(f"\033[34mTransition map plot computed in: {time.perf_counter() - ini_plottransition:.4f} seconds.\033[0m")
